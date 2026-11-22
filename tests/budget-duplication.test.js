@@ -3,9 +3,10 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../src/Presupuestos.jsx'), 'utf8');
-const helpers = source.slice(source.indexOf('    const isLockedBudget ='), source.indexOf('    const getBudgetStatusStyle ='));
+const helpers = source.slice(source.indexOf('    const {isLockedBudget,'), source.indexOf('    const getBudgetStatusStyle ='));
 test('a duplicate with its own quote ID stays editable while PMS reservations stay locked', () => {
-  const ctx = {};
+  const ctx = { window: {} };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../js/services/budgetStatus'), 'utf8'), ctx);
   vm.createContext(ctx);
   vm.runInContext(helpers + '\nthis.locked = isLockedBudget; this.details = getBudgetLockedDetails;', ctx);
   const copy = { Reserva: 'PRES-123456', Presupuesto_Origen: 'PRES-654321', sourceQuoteId: 'PRES-654321', Estado: 'Presupuesto', Com_Estado_Interno: 'PRESUPUESTO' };

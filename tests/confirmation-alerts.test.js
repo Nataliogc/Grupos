@@ -61,7 +61,7 @@ test('a tentative group segment is not mistaken for confirmed', () => {
 
 function createFinancialContext() {
   const finStart = source.indexOf('    const getGroupPaymentPlans =');
-  const finEnd = source.indexOf('    const Sidebar =', finStart);
+  const finEnd = source.indexOf('    const Dashboard =', finStart);
   const noticeStart = source.indexOf('      const getPaymentNotice =');
   const noticeEnd = source.indexOf('      // Consolidación de grupos', noticeStart);
   const ctx = {

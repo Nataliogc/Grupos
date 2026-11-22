@@ -1,34 +1,39 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ═══════════════════════════════════════════════════════
-    // NEXUS GROUPS — Firestore Security Rules
-    // ═══════════════════════════════════════════════════════
-    // TODO: Implementar Firebase Auth y cambiar todas las
-    //       reglas a `request.auth != null`
-    // ═══════════════════════════════════════════════════════
-
-    // Colección de grupos: lectura y escritura
-    match /groups/{groupId} {
-      allow read: if true;
-      allow write: if true;
-      // FUTURO: allow write: if request.auth != null;
+    function identified() {
+      return request.auth != null && request.auth.token.email.lower() != 'demo@hotel.com';
     }
-
-    // Colección de configuración: solo lectura pública, escritura protegida
-    match /settings/{settingId} {
-      allow read: if true;
-      allow write: if true;
-      // FUTURO: allow write: if request.auth != null
-      //         && request.auth.token.admin == true;
+    function member() {
+      return get(/databases/$(database)/documents/access_members/$(request.auth.uid)).data;
     }
-
-    // Cualquier otra colección: denegar por defecto
-    match /{document=**} {
-      allow read: if false;
-      allow write: if false;
+    function permitted(roles) {
+      return identified() && member().active == true && member().role in roles;
+    }
+    match /access_members/{uid} {
+      allow get: if identified() && request.auth.uid == uid;
+    }
+    match /groups/{id} {
+      function staff() { return permitted(['admin','direction','commercial']); }
+      function managesAccounts() { return permitted(['admin','direction']); }
+      function quote(data) {
+        return data.get('Reserva', '') is string && data.get('Reserva', '').matches('(?i)^PRES-.*');
+      }
+      // Commercial staff can price drafts. A live receivable and its payment
+      // history must be registered by management, accounting or the server.
+      function financialFields() {
+        return ['Reserva','Hotel_Asignado','Com_Total','Total','total','Importe(*)','Com_Pagado','PaymentPlan_JSON'];
+      }
+      allow read: if staff();
+      allow create: if managesAccounts() || (staff() && quote(request.resource.data));
+      allow update: if managesAccounts() || (staff() && (
+        (quote(resource.data) && quote(request.resource.data)) ||
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(financialFields())));
+      allow delete: if managesAccounts() || (staff() && quote(resource.data));
+    }
+    match /settings/{id} {
+      allow read: if permitted(['admin','direction','commercial']) && id != 'users';
+      allow write: if permitted(['admin','direction']) && id != 'users';
     }
   }
 }

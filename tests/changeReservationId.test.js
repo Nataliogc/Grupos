@@ -21,7 +21,7 @@ function fixture(initial) {
   };
   return { data, run: newId => changeReservationId({ db, oldId: '123', newId, normalizeId, timestamp: () => 'now' }) };
 }
-(async () => {
+require('node:test').test('reservation ID changes preserve linked records', async () => {
   const original = { Reserva: '123', PaymentPlan_JSON: '[{"paid":150}]', RoomingList_JSON: '[{"name":"Ana"}]', tracking: '[]' };
   const f = fixture({ 123: original, detail: { Reserva: '123', extra: 20 }, parent: { Reserva: 'PRES1', childReservationIds: ['123'] } });
   const result = await f.run('456');
@@ -64,4 +64,4 @@ function fixture(initial) {
   assert.equal(budgetData.get('PRES-123').convertedToReservation, '77140');
 
   console.log('OK: preserves records, payments, rooming and series links; rejects empty, unchanged and occupied IDs; preserves Presupuesto_Origen and keeps original budget as reference.');
-})().catch(error => { console.error(error); process.exitCode = 1; });
+});

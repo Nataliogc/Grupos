@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.106";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "22/11/2026 01:51";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.107";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "22/11/2026 21:17";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -153,40 +153,8 @@
     window.updateNexusDbStatus = updateDbStatus;
 
     // ─── Perfiles autorizados y Helpers de sesión ───────────────────────────
-    var AUTHORIZED_PROFILES = [
-        { id: "diana", name: "Diana", role: "Comercial", email: "jrecepcion@hotelguadiana.es" },
-        { id: "sergio", name: "Sergio", role: "Dirección", email: "ssanchez@hotelguadiana.es" },
-        { id: "oscar", name: "Oscar", role: "Dirección", email: "osanchez@hotelguadiana.es" },
-        { id: "natalio", name: "Natalio", role: "Administrador", email: "comunicaciones@hotelguadiana.es" }
-    ];
-
     function getCurrentUser() {
-        try {
-            var raw = localStorage.getItem('nexus_user') || sessionStorage.getItem('nexus_session');
-            if (raw) {
-                var u = JSON.parse(raw);
-                if (u && (u.name || u.email)) return u;
-            }
-        } catch(e) {}
-
-        // Si hay usuario recordado previamente y no cerró sesión explícitamente, asociarlo
-        try {
-            if (localStorage.getItem('nexus_explicit_logout') !== 'true') {
-                var saved = localStorage.getItem('nexus_saved_username');
-                if (saved) {
-                    var sLow = saved.trim().toLowerCase();
-                    var found = AUTHORIZED_PROFILES.find(function(p) {
-                        return p.id === sLow || p.name.toLowerCase() === sLow || p.email.toLowerCase() === sLow;
-                    });
-                    if (found) {
-                        localStorage.setItem('nexus_user', JSON.stringify(found));
-                        return found;
-                    }
-                }
-            }
-        } catch(e) {}
-
-        return null;
+        return window.nexusVerifiedMember || null;
     }
 
     window.getNexusCurrentUser = getCurrentUser;
@@ -225,21 +193,13 @@
 
         // Control de acceso unificado: Redirigir a index.html si no hay sesión activa
         var lowerPage = currentPage.toLowerCase();
-        var isPublicPage = (
-            lowerPage === "index.html" ||
-            lowerPage === "fac prof.html" ||
-            lowerPage === "orden servicio.html" ||
-            lowerPage === "rooming-servicios.html"
-        );
+        var isPublicPage = lowerPage === "index.html";
 
         var currentUser = getCurrentUser();
 
         if (!isPublicPage && !currentUser) {
-            var urlParams = new URLSearchParams(window.location.search);
-            if (!urlParams.get('bypass_auth')) {
-                window.location.replace("index.html");
-                return;
-            }
+            window.addEventListener('nexus-auth-verified', initHeader, {once: true});
+            return;
         }
 
         if (window.self !== window.top) return;
@@ -351,7 +311,7 @@
             var userRole = currentUser.role || "Comercial";
             var userInitial = userName.charAt(0).toUpperCase();
             var userEmail = currentUser.email || "";
-            var isAdmin = (userRole.toLowerCase() === "administrador" || (userName && userName.toLowerCase() === "natalio"));
+            var isAdmin = userRole.toLowerCase() === "administrador";
 
             userWidgetHtml = `
                 <div class="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
@@ -371,7 +331,7 @@
 
                     ${isAdmin ? `
                     <!-- Gestión de usuarios (Solo Administrador) -->
-                    <a href="Configuracion.html?tab=users" class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center justify-center shrink-0" title="Gestión de usuarios y accesos (Admin)">
+                    <a href="Usuarios.html" class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center justify-center shrink-0" title="Gestión de usuarios y accesos (Admin)">
                         <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
                     </a>
                     ` : ''}
@@ -430,8 +390,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.106 (22/11/2026 01:51)">
-                                    V2.5.106
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.107 (22/11/2026 21:17)">
+                                    V2.5.107
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -753,7 +713,7 @@
         var userEmail = user.email || "";
         var userRole = user.role || "Comercial";
         var userInitial = userName.charAt(0).toUpperCase();
-        var isAdmin = (userRole.toLowerCase() === "administrador" || userName.toLowerCase() === "natalio");
+        var isAdmin = userRole.toLowerCase() === "administrador";
 
         modal.innerHTML = `
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden transform transition-all">
@@ -846,7 +806,7 @@
 
                     ${isAdmin ? `
                     <div class="pt-3 border-t border-slate-100 text-center">
-                        <a href="Configuracion.html?tab=users" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1.5">
+                        <a href="Usuarios.html" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1.5">
                             <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
                             Ir al Panel de Gestión de Usuarios
                         </a>

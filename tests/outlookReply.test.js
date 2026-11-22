@@ -31,7 +31,7 @@ test('long replies remain intact for file handoff', () => {
 });
 test('Windows handler validates URI and long-file payload without opening Outlook', { skip: process.platform !== 'win32' }, () => {
   const script = path.resolve(__dirname, '../outlook/NexusOutlook.ps1');
-  const run = args => spawnSync('powershell.exe', ['-NoProfile', '-File', script, ...args, '-ValidateOnly'], { encoding: 'utf8' });
+  const run = args => spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'RemoteSigned', '-File', script, ...args, '-ValidateOnly'], { encoding: 'utf8' });
   const payload = buildPayload(item, message);
   let result = run(['-PayloadUri', 'nexus-outlook://reply/' + encodePayload(payload)]);
   assert.equal(result.status, 0, result.stderr);

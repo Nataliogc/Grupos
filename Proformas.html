@@ -145,7 +145,10 @@
     <!-- Scripts -->
     <script src="js/firebase-config.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/firebase-init.js?v=2-persistent-cache"></script>
+    <script src="js/vendor/firebase-auth-9.22.1-compat.js"></script>
+  <script src="js/firebase-init.js?v=2-persistent-cache"></script>
+  <style>html:not(.nexus-auth-verified) body { visibility: hidden }</style>
+  <script src="js/nexus-auth-guard.staging.js"></script>
     <script src="js/services/budgetStatus.js"></script>
   <script src="js/navigation.js?v=2-shared-listener"></script>
     <script>

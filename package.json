@@ -1,6 +1,6 @@
 {
   "name": "grupos",
-  "version": "2.5.106",
+  "version": "2.5.107",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build:peticiones": "babel src/Peticiones.jsx --out-file js/Peticiones.js && tailwindcss -c tailwind.peticiones.config.cjs -i styles/peticiones.input.css -o css/peticiones.css --minify",
     "test:outlook": "node --test tests/outlookReply.test.js",
     "check:calendar": "node --check js/utils.js && node --check js/Presupuestos.js && node --check js/services/capaSuitePricingService.js && node --check js/services/capaSuiteCalendarSync.js && node --check js/services/capaSuiteSession.mjs && node --test tests/capasuite-calendar-sync.test.js tests/capasuite-sync-pvp.test.js tests/budget-calendar-pvp-parity.test.js tests/budget-stay-dates.test.js tests/shared-pricing-flow.test.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node scripts/test-all.js",
     "build:js": "node scripts/bump-version.js && npx babel src --out-dir js",
     "build": "npm run build:js"
   },

@@ -24,6 +24,7 @@ function createScheduledRetryFunction({ db, localProjectId, logger = console }) 
       return onSchedule(
         {
           schedule: 'every 5 minutes',
+          secrets: ['INTER_SERVICE_AUTH_SECRET'],
           timeZone: 'Europe/Madrid',
           region: localProjectId === 'mesa-chef-prod' ? 'europe-west1' : 'us-central1',
           memory: '256MiB',

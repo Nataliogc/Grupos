@@ -6,12 +6,14 @@ const source = fs.readFileSync(require.resolve('../src/Presupuestos.jsx'), 'utf8
 const start = source.indexOf('const calculateTotal = (rawGroupData,');
 const end = source.indexOf('const parsePaymentPlan', start);
 const calculateTotal = vm.runInNewContext(source.slice(start, end) + '\ncalculateTotal;', {
+  NexusUtils: require('../js/utils'),
   window: { GroupTargetsService: require("../js/services/groupTargetsService"), AgencyCommissionService: require('../js/agencyCommissionService') },
   localStorage: { getItem: () => null },
   normalizeGroupData: data => data,
   generateDates: () => ['2026-10-06', '2026-10-07', '2026-10-08']
 });
 const group = {
+  Entrada: '2026-10-06', Salida: '2026-10-09',
   roomCounts: { triple: 5, dui: 23, doble: 3 },
   dailyConfig: Object.fromEntries(['2026-10-06', '2026-10-07', '2026-10-08'].map(date => [date, {
     board: { '2026-10-06': 'MP', '2026-10-07': 'PC', '2026-10-08': 'AD' }[date],

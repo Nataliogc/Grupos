@@ -52,7 +52,7 @@ function createPendingTransactionDoc({
     customerName,
     expiresAt,
     bankStatus: 'PENDIENTE',
-    deliveryStatus: DELIVERY_STATUS.PENDING_DISPATCH,
+    deliveryStatus: 'awaiting_bank',
     attempts: 0,
     maxAttempts: 3,
     lastDeliveryError: null,
@@ -84,7 +84,7 @@ function applyBankNotificationToDoc(existingDoc, {
   doc.bankStatus = isAuthorized ? 'COBRADO' : 'DENEGADO';
   doc.responseCode = responseCode;
   doc.authCode = authCode || doc.authCode || '';
-  doc.amountPaid = parseFloat(amountPaidEuros) || doc.amountRequested || 0;
+  doc.amountPaid = isAuthorized ? Number(amountPaidEuros) : 0;
   doc.cardBrand = cardBrand || doc.cardBrand || '';
   doc.cardLast4 = cardLast4 || doc.cardLast4 || '';
   doc.cardExpiry = cardExpiry || doc.cardExpiry || '';
@@ -94,6 +94,7 @@ function applyBankNotificationToDoc(existingDoc, {
   // Si fue cobrado, se programa entrega inmediata al proyecto Firebase
   if (isAuthorized) {
     doc.deliveryStatus = DELIVERY_STATUS.PENDING_DISPATCH;
+    doc.nextRetryAt = new Date(Date.now() + 300000).toISOString();
   }
 
   return doc;
@@ -159,30 +160,17 @@ async function findTransactionDoc(db, compositeId, orderId) {
   if (!db) return null;
   const colRef = db.collection('paygold_transactions');
 
-  // 1. Intento por clave compuesta moderna
-  if (compositeId) {
-    try {
-      const snap = await colRef.doc(compositeId).get();
-      if (snap.exists) return { doc: snap, id: compositeId, isComposite: true };
-    } catch (_) {}
+  for (const id of [compositeId, orderId].filter(Boolean)) {
+    const doc = await colRef.doc(id).get();
+    if (doc.exists) return {doc, id, isComposite: id === compositeId};
   }
-
-  // 2. Intento por orderId directo (retrocompatibilidad con enlaces anteriores)
   if (orderId) {
-    try {
-      const snap = await colRef.doc(orderId).get();
-      if (snap.exists) return { doc: snap, id: orderId, isComposite: false };
-    } catch (_) {}
-
-    // 3. Consulta por campo orderId
-    try {
-      const qSnap = await colRef.where('orderId', '==', orderId).limit(1).get();
-      if (!qSnap.empty) {
-        return { doc: qSnap.docs[0], id: qSnap.docs[0].id, isComposite: false };
-      }
-    } catch (_) {}
+    const matches = await colRef.where('orderId', '==', orderId).limit(2).get();
+    if (matches.docs.length === 1) {
+      const doc = matches.docs[0];
+      return {doc, id: doc.id, isComposite: false};
+    }
   }
-
   return null;
 }
 

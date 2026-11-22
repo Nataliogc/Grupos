@@ -6,16 +6,15 @@ const cors = require("cors")({ origin: true });
 
 // Definimos la API Key como SECRET (forma moderna)
 const geminiKey = defineSecret("GEMINI_KEY");
+const admin = require('firebase-admin');
+const { authorizeRequest } = require('./authorize-request');
 const mail = require('./mail');
 const redsysFunctions = require('./redsys-functions');
 
 exports.mailInbox = mail.mailInbox;
 exports.mailDetail = mail.mailDetail;
 exports.mailUpdate = mail.mailUpdate;
-// exports.syncGroupMail requiere el secret MAIL_IMAP_CONFIG en GCP.
-if (process.env.MAIL_IMAP_CONFIG) {
-  exports.syncGroupMail = require('./mail-imap').syncGroupMail;
-}
+exports.syncGroupMail = require('./mail-imap').syncGroupMail;
 
 // Pasarela de Pagos Redsys PayGold (Cumbria Spa & Hotel y servicios autorizados)
 exports.createPayGold = redsysFunctions.createPayGold;
@@ -33,7 +32,7 @@ exports.analizarGruposIA = onRequest(
     // Manejo manual de CORS por si acaso (para mayor compatibilidad con file://)
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
       res.status(204).send("");
@@ -45,6 +44,8 @@ exports.analizarGruposIA = onRequest(
     }
 
     try {
+      const access = await authorizeRequest(req.get('Authorization'), admin.auth(), admin.firestore());
+      if (access.status !== 200) return res.sendStatus(access.status);
       const GEMINI_API_KEY = geminiKey.value();
 
       if (!GEMINI_API_KEY) {
@@ -102,3 +103,12 @@ Genera un informe estratégico en Markdown con:
     }
   }
 );
+
+/* NEXUS GROUPS - ADMINISTRACION SEGURA DE USUARIOS */
+const nexusUsers = require('./nexus-users');
+
+exports.nexusListUsers = nexusUsers.nexusListUsers;
+exports.nexusCreateUser = nexusUsers.nexusCreateUser;
+exports.nexusLinkUser = nexusUsers.nexusLinkUser;
+exports.nexusUpdateUser = nexusUsers.nexusUpdateUser;
+exports.nexusResetUser = nexusUsers.nexusResetUser;

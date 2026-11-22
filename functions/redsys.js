@@ -14,16 +14,14 @@ const REDSYS_CONFIG = {
         name: "Cumbria Spa&Hotel",
         merchantCode: "168271567",
         terminal: "1",
-        secretKey: "T4o7OH9D6UTSo9B9xr2iRaP6I+7s4U8D",
-        apiKey: "PROD_MTY4MjcxNTY3XzAwMV9UNG83T0g5RDZVVFNoOUl5eHIyaVJhUDZJKzdzNFU4RA",
+        get secretKey() { return process.env.REDSYS_SECRET_KEY_CUMBRIA; },
         env: "production"
     },
     guadiana: {
         name: "Sercotel Guadiana",
         merchantCode: "168355840",
         terminal: "1",
-        secretKey: "", // Pendiente de activación por Eurocaja Rural
-        apiKey: "",
+        get secretKey() { return process.env.REDSYS_SECRET_KEY_GUADIANA; }, // Pendiente de activación por Eurocaja Rural
         env: "production"
     }
 };
@@ -182,6 +180,7 @@ function decodeAndVerifyResponse(responseBody, secretKeyBase64) {
         signatureValid = (receivedSig === expectedSig) || (norm(receivedSig) === norm(expectedSig));
     }
 
+    if (!signatureValid) throw new Error('Firma bancaria incorrecta.');
     return {
         ok: true,
         data: decoded,
@@ -264,7 +263,7 @@ async function createPayGoldRequest(options) {
         const baseRef = options.referenceId || options.groupId || options.reservaId;
         orderId = formatOrderNumberFromReservation(baseRef, options.orderSuffix || "", options.app || "grupos");
     } else {
-        orderId = formatOrderNumberFromReservation(orderId, options.orderSuffix || "", options.app || "grupos");
+        if (!/^\d{4}[A-Za-z0-9]{0,8}$/.test(orderId)) throw new Error('Pedido registrado incorrecto.');
     }
 
     const endpoint = REDSYS_ENDPOINTS[config.env] || REDSYS_ENDPOINTS.production;
@@ -352,8 +351,7 @@ async function createPayGoldRequest(options) {
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error de comunicación con Redsys HTTP ${response.status}: ${errorText}`);
+        throw new Error(`Error de comunicación con Redsys HTTP ${response.status}`);
     }
 
     const responseJson = await response.json();
@@ -361,7 +359,7 @@ async function createPayGoldRequest(options) {
 
     if (!verified.ok) {
         // Si el pedido ya existe en Redsys (ej. reintento o prueba previa), reintentar automáticamente con sufijo
-        if ((verified.errorCode === "SIS0051" || verified.errorCode === "SIS0020") && !options._retried) {
+        if ((verified.errorCode === "SIS0051" || verified.errorCode === "SIS0020") && !options.orderId && !options._retried) {
             const retryLetters = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '02', '03', '04', '05', '06', '07', '08', '09'];
             for (const nextSuffix of retryLetters) {
                 const retryRes = await createPayGoldRequest({
@@ -388,10 +386,14 @@ async function createPayGoldRequest(options) {
     }
 
     const data = verified.data;
+    if (String(data.Ds_Order ?? data.DS_MERCHANT_ORDER) !== orderId ||
+        (data.Ds_MerchantCode != null && String(data.Ds_MerchantCode) !== config.merchantCode) ||
+        (data.Ds_Amount != null && Number(data.Ds_Amount) !== Number(amountCents)))
+        throw new Error('La respuesta bancaria no corresponde al pedido.');
     const isSuccess = data.Ds_Response === "9998" || data.Ds_Response === "0000";
     const paymentUrl = data.Ds_UrlPago2Fases || "";
 
-    if (!isSuccess && !paymentUrl) {
+    if (!isSuccess || !paymentUrl) {
         return {
             success: false,
             errorCode: data.Ds_Response,
