@@ -1615,6 +1615,15 @@
       }, [currentView, selectedGroup, showTracking]);
 
       const [newNote, setNewNote] = useState('');
+      const [acceptOptionModal, setAcceptOptionModal] = useState({
+        open: false,
+        sourceGroup: null,
+        rows: [],
+        availableHotels: [],
+        availableBoards: [],
+        saving: false,
+        createdResults: []
+      });
       const [globalConfig, setGlobalConfig] = useState(null);
       const [isEditingClauses, setIsEditingClauses] = useState(false);
       const [tempClauses, setTempClauses] = useState([]);
@@ -3188,6 +3197,287 @@ ${emailContent}`;
         if (!window.confirm(`¿Duplicar este presupuesto para ${targetHotel}? Se creará una copia independiente para ajustar tarifas antes de enviarla.`)) return;
 
         return duplicateBudget(budget, true);
+      };
+
+      const getAcceptedRowPriceGrid = (sourceGroup, row) => {
+        if (!sourceGroup || !row) return {};
+        const primaryHotel = sourceGroup.Hotel_Asignado || "Sercotel Guadiana";
+        const isPrimary = String(row.hotel || primaryHotel).toLowerCase().includes("cumbria") === primaryHotel.toLowerCase().includes("cumbria");
+        const parsedY = row.in ? new Date(toInputDate(row.in)).getFullYear() : 2027;
+        const targetY = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100) ? parsedY : 2027;
+
+        if (sourceGroup.splitRatesBySegment && sourceGroup.segmentRatesOnlyGrids && sourceGroup.segmentRatesOnlyGrids[String(row.segId)]) {
+          const segEntry = sourceGroup.segmentRatesOnlyGrids[String(row.segId)];
+          const candidate = isPrimary ? segEntry.primary : segEntry.secondary;
+          if (candidate && Object.keys(candidate).length > 0) return candidate;
+        }
+        const fallbackGrid = isPrimary ? sourceGroup.ratesOnlyGrid : sourceGroup.secondaryRatesOnlyGrid;
+        if (fallbackGrid && Object.keys(fallbackGrid).length > 0) return fallbackGrid;
+        return getOfficialTariffsGrid(row.hotel || primaryHotel, targetY);
+      };
+
+      const estimateAcceptedRowTotal = (sourceGroup, row) => {
+        if (!sourceGroup || !row || !row.in || !row.out) return 0;
+        const nights = generateDates(row.in, row.out);
+        if (!nights.length) return 0;
+        const grid = getAcceptedRowPriceGrid(sourceGroup, row);
+        const boardKey = String(row.board || "HD").split(" ")[0];
+        const boardPrices = grid[boardKey] || (boardKey === "HA" ? grid["SA"] : (boardKey === "HD" ? grid["AD"] : {})) || {};
+
+        let total = 0;
+        nights.forEach(date => {
+          const origDay = (sourceGroup.dailyConfig || {})[date] || {};
+          (row.roomAllocations || []).forEach(alloc => {
+            const rt = String(alloc.roomType || "").toUpperCase();
+            const rooms = Number(alloc.rooms || 0);
+            if (rooms <= 0) return;
+            const pk = Object.keys(boardPrices).find(k => k.trim().toLowerCase() === rt.toLowerCase());
+            const price = pk ? Number(boardPrices[pk] || 0) : 0;
+            let grat = 0;
+            if (origDay.gratuities) {
+              const gk = Object.keys(origDay.gratuities).find(k => k.trim().toLowerCase() === rt.toLowerCase());
+              if (gk) grat = parseInt(origDay.gratuities[gk] || 0, 10) || 0;
+            } else {
+              const tk = Object.keys(origDay).find(k => k.trim().toLowerCase() === rt.toLowerCase());
+              if (tk && origDay[tk]) grat = parseInt(origDay[tk].gratuities || 0, 10) || 0;
+            }
+            const billable = Math.max(0, rooms - grat);
+            total += billable * price;
+          });
+        });
+        return total;
+      };
+
+      const openAcceptOptionModal = (budget) => {
+        const g = normalizeGroupData(budget);
+        if (!g) return;
+        const primaryHotel = g.Hotel_Asignado || "Sercotel Guadiana";
+        const availableHotels = g.includeBothHotels
+          ? [primaryHotel, getAlternateHotel(primaryHotel)]
+          : [primaryHotel];
+
+        const visibleBoards = BOARD_TYPES
+          .map(b => b.split(" ")[0])
+          .filter(code => !(g.hiddenGridRows || []).includes(code));
+        const availableBoards = visibleBoards.length > 0 ? visibleBoards : ["HA", "HD", "MP", "PC"];
+        const defaultBoard = availableBoards.includes(String(g["Régimen"] || "").split(" ")[0])
+          ? String(g["Régimen"]).split(" ")[0]
+          : availableBoards[0];
+
+        let rows = [];
+        if (g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 0) {
+          rows = g.segments.map((seg, idx) => {
+            const allocs = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0
+              ? seg.roomAllocations
+              : [{ roomType: seg.roomType || "DOBLE", rooms: Number(seg.rooms || 1), pax: Number(seg.pax || 2) }];
+            return {
+              segId: String(seg.id || idx + 1),
+              in: seg.in,
+              out: seg.out,
+              pax: Number(seg.pax || 0),
+              roomAllocations: allocs,
+              selected: true,
+              hotel: primaryHotel,
+              board: defaultBoard
+            };
+          });
+        } else {
+          const allocs = Object.entries(g.roomCounts || {})
+            .filter(([_, c]) => Number(c) > 0)
+            .map(([rt, c]) => ({
+              roomType: rt.toUpperCase(),
+              rooms: Number(c),
+              pax: Number(c) * (PAX_PER_ROOM[rt] || 2)
+            }));
+          rows = [{
+            segId: "1",
+            in: g.Entrada,
+            out: g.Salida,
+            pax: Number(g["Pax."] || 0),
+            roomAllocations: allocs.length > 0 ? allocs : [{ roomType: "DOBLE", rooms: Math.max(1, Math.ceil(Number(g["Pax."] || 2) / 2)), pax: Number(g["Pax."] || 2) }],
+            selected: true,
+            hotel: primaryHotel,
+            board: defaultBoard
+          }];
+        }
+
+        setAcceptOptionModal({
+          open: true,
+          sourceGroup: g,
+          rows,
+          availableHotels,
+          availableBoards,
+          saving: false,
+          createdResults: []
+        });
+      };
+
+      const handleConfirmAcceptedOptions = async () => {
+        const { sourceGroup, rows } = acceptOptionModal;
+        if (!sourceGroup) return;
+        const acceptedRows = rows.filter(r => r.selected);
+        if (acceptedRows.length === 0) {
+          alert("Selecciona al menos una estancia aceptada.");
+          return;
+        }
+
+        setAcceptOptionModal(prev => ({ ...prev, saving: true }));
+        try {
+          const now = new Date();
+          const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          const usedIds = new Set();
+          const createdDocs = [];
+          const baseName = String(sourceGroup["Nombre del Grupo"] || "GRUPO")
+            .replace(/\s*\(\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}\)\s*$/, "")
+            .trim()
+            .toUpperCase();
+
+          for (let idx = 0; idx < acceptedRows.length; idx++) {
+            const row = acceptedRows[idx];
+            let newReservaId;
+            do {
+              newReservaId = `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
+            } while (usedIds.has(newReservaId));
+            usedIds.add(newReservaId);
+
+            const targetHotel = row.hotel;
+            const boardCode = String(row.board || "HD").split(" ")[0];
+            const fullBoardLabel = BOARD_TYPES.find(b => b.startsWith(boardCode)) || boardCode;
+            const grid = getAcceptedRowPriceGrid(sourceGroup, row);
+            const boardPrices = grid[boardCode] || (boardCode === "HA" ? grid["SA"] : (boardCode === "HD" ? grid["AD"] : {})) || {};
+
+            const roomCounts = {};
+            (row.roomAllocations || []).forEach(alloc => {
+              const rt = String(alloc.roomType || "").toUpperCase();
+              const cnt = Number(alloc.rooms || 0);
+              if (cnt > 0) roomCounts[rt] = (roomCounts[rt] || 0) + cnt;
+            });
+            const normalizedRoomCounts = remapRoomObjectForHotel(roomCounts, targetHotel, "sum");
+
+            const nights = generateDates(row.in, row.out);
+            const dailyConfig = {};
+            nights.forEach(date => {
+              const origDay = (sourceGroup.dailyConfig || {})[date] || {};
+              const prices = {};
+              const counts = {};
+              const gratuities = {};
+              Object.entries(normalizedRoomCounts).forEach(([rt, cnt]) => {
+                if (cnt <= 0) return;
+                counts[rt] = cnt;
+                const pk = Object.keys(boardPrices).find(k => k.trim().toLowerCase() === rt.toLowerCase());
+                prices[rt] = pk ? Number(boardPrices[pk] || 0) : 0;
+                let gVal = 0;
+                if (origDay.gratuities) {
+                  const gk = Object.keys(origDay.gratuities).find(k => k.trim().toLowerCase() === rt.toLowerCase());
+                  if (gk) gVal = parseInt(origDay.gratuities[gk] || 0, 10) || 0;
+                } else {
+                  const tk = Object.keys(origDay).find(k => k.trim().toLowerCase() === rt.toLowerCase());
+                  if (tk && origDay[tk]) gVal = parseInt(origDay[tk].gratuities || 0, 10) || 0;
+                }
+                if (gVal > 0) gratuities[rt] = gVal;
+              });
+              dailyConfig[date] = {
+                board: fullBoardLabel,
+                prices,
+                counts,
+                gratuities
+              };
+            });
+
+            const dateSuffix = row.in && row.out
+              ? ` (${row.in.slice(8, 10)}/${row.in.slice(5, 7)} - ${row.out.slice(8, 10)}/${row.out.slice(5, 7)})`
+              : "";
+            const groupName = acceptedRows.length > 1 ? `${baseName}${dateSuffix}` : baseName;
+
+            let releaseDate = sourceGroup.Com_Vencimiento_Rel || "";
+            if (row.in) {
+              const d = new Date(row.in);
+              if (!isNaN(d.getTime())) {
+                d.setDate(d.getDate() - 15);
+                releaseDate = d.toISOString().split("T")[0];
+              }
+            }
+
+            const habitacionesResumen = Object.entries(normalizedRoomCounts)
+              .filter(([_, c]) => Number(c) > 0)
+              .map(([t, c]) => `${c} ${t}`)
+              .join(", ");
+
+            const draftGroup = {
+              ...sourceGroup,
+              "Nombre del Grupo": groupName,
+              "Entrada": row.in,
+              "Salida": row.out,
+              "Pax.": String(row.pax || 0),
+              "declaredPax": String(row.pax || 0),
+              "Hotel_Asignado": targetHotel,
+              "Hotel": targetHotel,
+              "Régimen": boardCode,
+              "Habitaciones": habitacionesResumen,
+              "roomCounts": normalizedRoomCounts,
+              "dailyConfig": dailyConfig,
+              "isRatesOnly": false,
+              "includeBothHotels": false,
+              "isMultiSegment": false,
+              "splitRatesBySegment": false,
+              "segments": [],
+              "segmentRatesOnlyGrids": {},
+              "secondaryRatesOnlyGrid": {},
+              "averageStayCondition": null,
+              "Reserva": newReservaId,
+              "Presupuesto_Origen": sourceGroup.Reserva,
+              "sourceQuoteId": sourceGroup.Reserva,
+              "Estado": "Presupuesto",
+              "Com_Estado_Interno": "PRESUPUESTO",
+              "Com_Vencimiento_Rel": releaseDate,
+              "tracking": [{
+                id: Date.now() + idx,
+                date: formattedDate,
+                text: `✅ Opción aceptada desde propuesta conjunta ${sourceGroup.Reserva} (${targetHotel} · ${boardCode}).`
+              }],
+              "createdAt": firebase.firestore.FieldValue.serverTimestamp(),
+              "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+            };
+            delete draftGroup.uid;
+
+            const finalTotal = calculateTotal(draftGroup);
+            draftGroup["Importe(*)"] = formatNum(finalTotal);
+            draftGroup["RoomingList_JSON"] = JSON.stringify(buildRoomingList(draftGroup, "[]"));
+
+            await db.collection("groups").doc(newReservaId).set(draftGroup);
+            createdDocs.push({
+              ...normalizeGroupData(draftGroup),
+              uid: newReservaId,
+              totalAmount: finalTotal
+            });
+          }
+
+          // Registrar en el historial de la propuesta conjunta original
+          if (sourceGroup.uid) {
+            const summaryText = createdDocs.map(d => `${d.Reserva} (${d.Hotel_Asignado} · ${d["Régimen"]} · ${formatDate(d.Entrada)}-${formatDate(d.Salida)})`).join(" | ");
+            const updatedTracking = [
+              { id: Date.now() + 99, date: formattedDate, text: `🎯 Opción aceptada generada: ${summaryText}` },
+              ...(Array.isArray(sourceGroup.tracking) ? sourceGroup.tracking : [])
+            ];
+            try {
+              await db.collection("groups").doc(sourceGroup.uid).update({ tracking: updatedTracking });
+            } catch (err) {
+              console.warn("No se pudo actualizar el tracking del presupuesto origen:", err);
+            }
+          }
+
+          if (createdDocs.length === 1) {
+            setAcceptOptionModal({ open: false, sourceGroup: null, rows: [], availableHotels: [], availableBoards: [], saving: false, createdResults: [] });
+            setSelectedGroup(createdDocs[0]);
+            setCurrentView('detail');
+          } else {
+            setAcceptOptionModal(prev => ({ ...prev, saving: false, createdResults: createdDocs }));
+          }
+        } catch (err) {
+          console.error("Error al crear presupuesto desde opción aceptada:", err);
+          alert("Error al generar la opción aceptada: " + err.message);
+          setAcceptOptionModal(prev => ({ ...prev, saving: false }));
+        }
       };
 
       const addTrackingNote = async (e) => {
@@ -6430,12 +6720,24 @@ ${emailContent}`;
                     <i className="fas fa-copy"></i> Duplicar Presupuesto
                   </button>
                 ) : (
-                  <button 
-                    onClick={() => { setFormData(g); setCurrentView('create'); }}
-                    className="flex-1 md:flex-none px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
-                  >
-                    <i className="fas fa-edit"></i> Editar Datos
-                  </button>
+                  <>
+                    {(g.isRatesOnly || g.includeBothHotels || (g.isMultiSegment && g.segments && g.segments.length > 1)) && (
+                      <button
+                        type="button"
+                        onClick={() => openAcceptOptionModal(g)}
+                        className="flex-1 md:flex-none px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
+                        title="Selecciona la fecha, hotel y régimen que ha aceptado el cliente para generar el presupuesto cerrado"
+                      >
+                        <i className="fas fa-check-double"></i> Elegir Opción Aceptada
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => { setFormData(g); setCurrentView('create'); }}
+                      className="flex-1 md:flex-none px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
+                    >
+                      <i className="fas fa-edit"></i> Editar Datos
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -7569,6 +7871,201 @@ Y del 21 de junio al..."
                     )}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL: ELEGIR OPCIÓN ACEPTADA DE PROPUESTA COMBINADA */}
+          {acceptOptionModal.open && (
+            <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
+              <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden">
+                <div className="bg-slate-900 text-white px-6 py-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                      <i className="fas fa-check-double"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-wider">Elegir Opción Aceptada</h3>
+                      <p className="text-[11px] text-slate-400">
+                        {acceptOptionModal.sourceGroup?.["Nombre del Grupo"]} · Ref. {acceptOptionModal.sourceGroup?.Reserva}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAcceptOptionModal(prev => ({ ...prev, open: false }))}
+                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                  >
+                    <i className="fas fa-times text-xs"></i>
+                  </button>
+                </div>
+
+                {acceptOptionModal.createdResults && acceptOptionModal.createdResults.length > 0 ? (
+                  <div className="p-6 space-y-4">
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                      <i className="fas fa-check-circle text-emerald-600 text-lg mt-0.5"></i>
+                      <div>
+                        <p className="text-sm font-black text-emerald-900">
+                          ¡Se han generado {acceptOptionModal.createdResults.length} presupuestos cerrados!
+                        </p>
+                        <p className="text-xs text-emerald-800 mt-0.5">
+                          La propuesta conjunta original se conserva intacta en el histórico. Selecciona cualquiera para abrirlo y confirmarlo:
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2.5">
+                      {acceptOptionModal.createdResults.map(doc => (
+                        <div key={doc.Reserva} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black text-slate-800 uppercase">{doc["Nombre del Grupo"]}</p>
+                            <p className="text-[11px] font-bold text-slate-500 mt-0.5">
+                              {doc.Reserva} · {doc.Hotel_Asignado} · {doc["Régimen"]} · {formatDate(doc.Entrada)} – {formatDate(doc.Salida)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-black text-emerald-700 tabular-nums">{formatNum(doc.totalAmount)} €</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAcceptOptionModal({ open: false, sourceGroup: null, rows: [], availableHotels: [], availableBoards: [], saving: false, createdResults: [] });
+                                setSelectedGroup(doc);
+                                setCurrentView('detail');
+                              }}
+                              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                            >
+                              Abrir
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Marca las estancias que ha aceptado el cliente y elige el <strong>hotel</strong> y el <strong>régimen</strong> ganador para cada una. Se creará automáticamente el presupuesto cerrado con su importe total listo para confirmar.
+                      </p>
+
+                      <div className="space-y-3">
+                        {acceptOptionModal.rows.map((row, idx) => {
+                          const estTotal = estimateAcceptedRowTotal(acceptOptionModal.sourceGroup, row);
+                          const nightsCount = row.in && row.out ? generateDates(row.in, row.out).length : 0;
+                          return (
+                            <div
+                              key={row.segId}
+                              className={`p-4 rounded-2xl border-2 transition-all ${row.selected ? 'bg-white border-emerald-400 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-60'}`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={row.selected}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setAcceptOptionModal(prev => ({
+                                        ...prev,
+                                        rows: prev.rows.map((r, i) => i === idx ? { ...r, selected: checked } : r)
+                                      }));
+                                    }}
+                                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                  />
+                                  <span className="text-xs font-black text-slate-800 uppercase">
+                                    Estancia {idx + 1}: {formatDate(row.in)} – {formatDate(row.out)}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-slate-400">
+                                    ({nightsCount} {nightsCount === 1 ? 'noche' : 'noches'} · {row.pax} pax)
+                                  </span>
+                                </label>
+                                {row.selected && (
+                                  <span className="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black tabular-nums">
+                                    Total: {formatNum(estTotal)} €
+                                  </span>
+                                )}
+                              </div>
+
+                              {row.selected && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                                  <div>
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Hotel Aceptado</label>
+                                    <select
+                                      value={row.hotel}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setAcceptOptionModal(prev => ({
+                                          ...prev,
+                                          rows: prev.rows.map((r, i) => i === idx ? { ...r, hotel: val } : r)
+                                        }));
+                                      }}
+                                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500"
+                                    >
+                                      {acceptOptionModal.availableHotels.map(h => (
+                                        <option key={h} value={h}>{h}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Régimen Aceptado</label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {acceptOptionModal.availableBoards.map(code => (
+                                        <button
+                                          key={code}
+                                          type="button"
+                                          onClick={() => {
+                                            setAcceptOptionModal(prev => ({
+                                              ...prev,
+                                              rows: prev.rows.map((r, i) => i === idx ? { ...r, board: code } : r)
+                                            }));
+                                          }}
+                                          className={`flex-1 min-w-[54px] py-2 rounded-xl text-xs font-black border transition-all ${
+                                            row.board === code
+                                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300'
+                                          }`}
+                                        >
+                                          {code}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        disabled={acceptOptionModal.saving}
+                        onClick={() => setAcceptOptionModal(prev => ({ ...prev, open: false }))}
+                        className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-100 uppercase tracking-widest"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={acceptOptionModal.saving || !acceptOptionModal.rows.some(r => r.selected)}
+                        onClick={handleConfirmAcceptedOptions}
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 transition-all"
+                      >
+                        {acceptOptionModal.saving ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Generando...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-check-double"></i>
+                            Aplicar Opción Aceptada ({acceptOptionModal.rows.filter(r => r.selected).length})
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
