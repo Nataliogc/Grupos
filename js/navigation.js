@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.106";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "22/11/2026 01:51";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.111";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "23/11/2026 00:08";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -153,40 +153,8 @@
     window.updateNexusDbStatus = updateDbStatus;
 
     // ─── Perfiles autorizados y Helpers de sesión ───────────────────────────
-    var AUTHORIZED_PROFILES = [
-        { id: "diana", name: "Diana", role: "Comercial", email: "jrecepcion@hotelguadiana.es" },
-        { id: "sergio", name: "Sergio", role: "Dirección", email: "ssanchez@hotelguadiana.es" },
-        { id: "oscar", name: "Oscar", role: "Dirección", email: "osanchez@hotelguadiana.es" },
-        { id: "natalio", name: "Natalio", role: "Administrador", email: "comunicaciones@hotelguadiana.es" }
-    ];
-
     function getCurrentUser() {
-        try {
-            var raw = localStorage.getItem('nexus_user') || sessionStorage.getItem('nexus_session');
-            if (raw) {
-                var u = JSON.parse(raw);
-                if (u && (u.name || u.email)) return u;
-            }
-        } catch(e) {}
-
-        // Si hay usuario recordado previamente y no cerró sesión explícitamente, asociarlo
-        try {
-            if (localStorage.getItem('nexus_explicit_logout') !== 'true') {
-                var saved = localStorage.getItem('nexus_saved_username');
-                if (saved) {
-                    var sLow = saved.trim().toLowerCase();
-                    var found = AUTHORIZED_PROFILES.find(function(p) {
-                        return p.id === sLow || p.name.toLowerCase() === sLow || p.email.toLowerCase() === sLow;
-                    });
-                    if (found) {
-                        localStorage.setItem('nexus_user', JSON.stringify(found));
-                        return found;
-                    }
-                }
-            }
-        } catch(e) {}
-
-        return null;
+        return window.nexusVerifiedMember || null;
     }
 
     window.getNexusCurrentUser = getCurrentUser;
@@ -225,21 +193,13 @@
 
         // Control de acceso unificado: Redirigir a index.html si no hay sesión activa
         var lowerPage = currentPage.toLowerCase();
-        var isPublicPage = (
-            lowerPage === "index.html" ||
-            lowerPage === "fac prof.html" ||
-            lowerPage === "orden servicio.html" ||
-            lowerPage === "rooming-servicios.html"
-        );
+        var isPublicPage = lowerPage === "index.html";
 
         var currentUser = getCurrentUser();
 
         if (!isPublicPage && !currentUser) {
-            var urlParams = new URLSearchParams(window.location.search);
-            if (!urlParams.get('bypass_auth')) {
-                window.location.replace("index.html");
-                return;
-            }
+            window.addEventListener('nexus-auth-verified', initHeader, {once: true});
+            return;
         }
 
         if (window.self !== window.top) return;
@@ -351,7 +311,7 @@
             var userRole = currentUser.role || "Comercial";
             var userInitial = userName.charAt(0).toUpperCase();
             var userEmail = currentUser.email || "";
-            var isAdmin = (userRole.toLowerCase() === "administrador" || (userName && userName.toLowerCase() === "natalio"));
+            var isAdmin = userRole.toLowerCase() === "administrador";
 
             userWidgetHtml = `
                 <div class="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
@@ -371,7 +331,7 @@
 
                     ${isAdmin ? `
                     <!-- Gestión de usuarios (Solo Administrador) -->
-                    <a href="Configuracion.html?tab=users" class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center justify-center shrink-0" title="Gestión de usuarios y accesos (Admin)">
+                    <a href="Usuarios.html" class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center justify-center shrink-0" title="Gestión de usuarios y accesos (Admin)">
                         <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
                     </a>
                     ` : ''}
@@ -393,9 +353,11 @@
             ['https://nataliogc.github.io/menus-cocteles/','Menús Cócteles','martini','rose'],
             ['Configuracion.html','Configuración','settings','slate']
         ];
+        const isAdminNav = currentUser && String(currentUser.role || '').toLowerCase() === 'administrador';
         const settingsSections = [
             ['guadiana', 'Sercotel Guadiana'], ['cumbria', 'Cumbria Spa&Hotel'],
-            ['system', 'Sistema e IA'], ['users', 'Usuarios y Accesos'],
+            ['system', 'Sistema e IA'],
+            ...(isAdminNav ? [['users', 'Usuarios y Accesos']] : []),
             ['services', 'Catálogo de Servicios'], ['clauses', 'Textos Legales']
         ];
         const settingsLink = ([tab, label]) =>
@@ -430,8 +392,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.106 (22/11/2026 01:51)">
-                                    V2.5.106
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.111 (23/11/2026 00:08)">
+                                    V2.5.111
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -553,7 +515,10 @@
             if (event.key === countKey) displayBudgetCount(event.newValue);
         });
         if (window.db && currentUser) {
-            (window.nexusListen || ((ref, next) => ref.onSnapshot(next)))(window.db.collection("groups"), snapshot => {
+            var listenGroups = typeof window.nexusListenGroups === "function"
+                ? window.nexusListenGroups
+                : function (dbInst, next) { return (window.nexusListen || ((ref, n) => ref.onSnapshot(n)))(dbInst.collection("groups"), next); };
+            listenGroups(window.db, snapshot => {
                 const today = new Date().toISOString().slice(0, 10);
                 let count = 0;
                 snapshot.forEach(doc => { if (window.NexusBudgetStatus.isActiveBudget(doc.data(), today)) count++; });
@@ -753,7 +718,7 @@
         var userEmail = user.email || "";
         var userRole = user.role || "Comercial";
         var userInitial = userName.charAt(0).toUpperCase();
-        var isAdmin = (userRole.toLowerCase() === "administrador" || userName.toLowerCase() === "natalio");
+        var isAdmin = userRole.toLowerCase() === "administrador";
 
         modal.innerHTML = `
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden transform transition-all">
@@ -846,7 +811,7 @@
 
                     ${isAdmin ? `
                     <div class="pt-3 border-t border-slate-100 text-center">
-                        <a href="Configuracion.html?tab=users" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1.5">
+                        <a href="Usuarios.html" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1.5">
                             <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
                             Ir al Panel de Gestión de Usuarios
                         </a>
@@ -918,8 +883,8 @@
                 showFeedback("error", "Por favor, introduce tu contraseña actual.");
                 return;
             }
-            if (!newVal || newVal.length < 4) {
-                showFeedback("error", "La nueva contraseña debe tener al menos 4 caracteres.");
+            if (!newVal || newVal.length < 6) {
+                showFeedback("error", "La nueva contraseña debe tener al menos 6 caracteres.");
                 return;
             }
             if (newVal !== confirmVal) {
@@ -931,84 +896,19 @@
             btnText.textContent = "Verificando...";
 
             try {
-                if (!window.db || typeof window.db.collection !== "function") {
-                    throw new Error("No hay conexión con la base de datos.");
+                if (!window.firebase || typeof firebase.auth !== "function" || !firebase.auth().currentUser) {
+                    throw new Error("No hay sesión activa en Firebase Authentication.");
                 }
-
-                var docRef = window.db.collection("settings").doc("main");
-                var doc = await docRef.get();
-                var users = [];
-                var data = {};
-
-                if (doc.exists) {
-                    data = doc.data() || {};
-                    if (data.system && Array.isArray(data.system.users)) {
-                        users = [...data.system.users];
-                    }
+                var fbUser = firebase.auth().currentUser;
+                var emailForAuth = fbUser.email || user.email || "";
+                if (!emailForAuth) {
+                    throw new Error("Tu cuenta no tiene correo electrónico asociado.");
                 }
+                var credential = firebase.auth.EmailAuthProvider.credential(emailForAuth, currentVal);
+                await fbUser.reauthenticateWithCredential(credential);
+                await fbUser.updatePassword(newVal);
 
-                // Si no hay usuarios en Firestore, inicializar con los perfiles predeterminados
-                if (users.length === 0) {
-                    users = [
-                        { email: "jrecepcion@hotelguadiana.es", pass: "1234", name: "Diana", role: "Comercial" },
-                        { email: "ssanchez@hotelguadiana.es", pass: "1234", name: "Sergio", role: "Dirección" },
-                        { email: "osanchez@hotelguadiana.es", pass: "1234", name: "Oscar", role: "Dirección" },
-                        { email: "comunicaciones@hotelguadiana.es", pass: "1234", name: "Natalio", role: "Administrador" }
-                    ];
-                }
-
-                var myEmail = (user.email || "").toLowerCase();
-                var myName = (user.name || "").toLowerCase();
-                var myId = (user.id || "").toLowerCase();
-
-                var userIdx = users.findIndex(function(u) {
-                    var uEmail = (u.email || "").toLowerCase();
-                    var uName = (u.name || "").toLowerCase();
-                    var uId = (u.id || "").toLowerCase();
-                    return (myEmail && uEmail === myEmail) || (myName && uName === myName) || (myId && uId === myId);
-                });
-
-                if (userIdx < 0) {
-                    userIdx = users.length;
-                    users.push({
-                        id: user.id || myName,
-                        name: user.name,
-                        email: user.email,
-                        role: user.role || "Comercial",
-                        pass: "1234",
-                        active: true
-                    });
-                }
-
-                var existingPass = String(users[userIdx].pass || "1234");
-                if (existingPass !== currentVal) {
-                    submitBtn.disabled = false;
-                    btnText.textContent = "Actualizar Contraseña";
-                    showFeedback("error", "La contraseña actual no es correcta.");
-                    return;
-                }
-
-                // Actualizar contraseña
-                users[userIdx].pass = newVal;
-                users[userIdx].active = true;
-                users[userIdx].revoked = false;
-
-                // Guardar en Firestore
-                await docRef.set({
-                    ...data,
-                    system: {
-                        ...(data.system || {}),
-                        users: users
-                    }
-                }, { merge: true });
-
-                // Actualizar sesión local
-                user.pass = newVal;
-                try {
-                    localStorage.setItem('nexus_user', JSON.stringify(user));
-                } catch(e) {}
-
-                showFeedback("success", "¡Contraseña actualizada con éxito!");
+                showFeedback("success", "¡Contraseña actualizada con éxito en Firebase Authentication!");
                 btnText.textContent = "¡Guardado!";
                 setTimeout(function() {
                     closeModal();
@@ -1018,7 +918,12 @@
                 console.error("[Navigation] Error actualizando contraseña:", err);
                 submitBtn.disabled = false;
                 btnText.textContent = "Actualizar Contraseña";
-                showFeedback("error", "Error al guardar: " + (err.message || "Problema de conexión"));
+                var msg = (err && (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential"))
+                    ? "La contraseña actual no es correcta."
+                    : (err && err.code === "auth/weak-password")
+                        ? "La nueva contraseña es demasiado débil (mínimo 6 caracteres)."
+                        : ("Error al actualizar: " + (err && err.message ? err.message : "Problema de conexión"));
+                showFeedback("error", msg);
             }
         });
     };

@@ -13,7 +13,7 @@ const HOTELS = {
     merchantCode: '168271567',
     terminal: '1',
     // La clave puede ser inyectada desde Secret Manager o variable de entorno
-    getSecretKey: () => process.env.REDSYS_SECRET_KEY_CUMBRIA || 'T4o7OH9D6UTSo9B9xr2iRaP6I+7s4U8D',
+    getSecretKey: () => process.env.REDSYS_SECRET_KEY_CUMBRIA,
     webhookUrl: 'https://redsyswebhook-nls6pa6unq-uc.a.run.app',
     currency: '978',
     supportedPrefixes: ['SPA-', 'GRP-', 'RES-', 'EVT-', 'GE-']
@@ -23,7 +23,7 @@ const HOTELS = {
     name: 'Sercotel Guadiana',
     merchantCode: '168355840',
     terminal: '001',
-    getSecretKey: () => process.env.REDSYS_SECRET_KEY_GUADIANA || process.env.REDSYS_SECRET_KEY || null,
+    getSecretKey: () => process.env.REDSYS_SECRET_KEY_GUADIANA,
     webhookUrl: 'https://europe-west1-mesa-chef-prod.cloudfunctions.net/redsysWebhook',
     currency: '978',
     emailConciliacion: 'administracion@hotelguadiana.es',

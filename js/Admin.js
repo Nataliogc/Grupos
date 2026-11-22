@@ -1766,6 +1766,7 @@ var Dashboard = function Dashboard(_ref) {
         _step,
         docId,
         snap,
+        baseQuery,
         qSnap,
         batch,
         targetId,
@@ -1869,8 +1870,9 @@ var Dashboard = function Dashboard(_ref) {
               break;
             }
             _context2.p = 12;
+            baseQuery = typeof window.getNexusGroupsQuery === "function" ? window.getNexusGroupsQuery(db) : db.collection("groups");
             _context2.n = 13;
-            return db.collection("groups").where("Reserva", "==", data.resId).get();
+            return baseQuery.where("Reserva", "==", data.resId).get();
           case 13:
             qSnap = _context2.v;
             qSnap.forEach(function (d) {
@@ -3211,7 +3213,7 @@ var Dashboard = function Dashboard(_ref) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.106 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.111 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref5) {
   var data = _ref5.data,
@@ -3986,7 +3988,12 @@ var App = function App() {
     return list.slice(0, 5); // Mostrar top 5 más urgentes
   }, [data]);
   useEffect(function () {
-    var unsubscribe = db.collection("groups").onSnapshot(function (snapshot) {
+    var subscribeGroups = typeof window.nexusListenGroups === "function" ? function (next) {
+      return window.nexusListenGroups(db, next);
+    } : function (next) {
+      return db.collection("groups").onSnapshot(next);
+    };
+    var unsubscribe = subscribeGroups(function (snapshot) {
       var parsed = [];
       snapshot.forEach(function (doc) {
         var row = doc.data();

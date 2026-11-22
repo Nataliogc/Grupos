@@ -42,14 +42,14 @@ test('calcStayDays and addStayDays prevent abnormal durations when typing year m
   // Evaluate the helper functions in a sandboxed context
   const fnSection = src.slice(
     src.indexOf('    const isCompleteDate ='),
-    src.indexOf('    const isLockedBudget =')
+    src.indexOf('    const {isLockedBudget,')
   );
-  const sandbox = { NexusUtils, toInputDate: NexusUtils.toInputDate };
+  const sandbox = { NexusUtils, generateDates: NexusUtils.generateDates, toInputDate: NexusUtils.toInputDate };
   const fn = new Function('sandbox', `with(sandbox) { ${fnSection} return { isCompleteDate, calcStayDays, addStayDays }; }`);
   const { isCompleteDate, calcStayDays, addStayDays } = fn(sandbox);
 
   // Incomplete year 0002 should not calculate 731,579 days
-  assert.equal(calcStayDays('0002-09-04', '2005-09-02'), 1);
+  assert.equal(calcStayDays('0002-09-04', '2005-09-02'), 0);
   assert.equal(calcStayDays('2026-09-04', '2026-09-07'), 3);
 
   // addStayDays should not create broken dates when given year 0002

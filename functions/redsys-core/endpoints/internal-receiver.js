@@ -26,10 +26,11 @@ const AUTHORIZED_SERVICES = ['mesa-chef-prod', 'gest-grupos-hotel'];
 function createInternalReceiver({
   db,
   localProjectId,
-  secretKey = process.env.INTER_SERVICE_AUTH_SECRET || 'InterServiceSecretKeyGuadianaCumbria2026',
+  secretKey = process.env.INTER_SERVICE_AUTH_SECRET,
   logger = console
 }) {
   return async function handleInternalPaymentDispatch(req, res) {
+    if (!secretKey) return res.status(503).json({ error: 'Servicio sin configurar' });
     // 1. Validar método HTTP
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Método no permitido. Utilice POST.' });
@@ -65,6 +66,10 @@ function createInternalReceiver({
       return;
     }
 
+    const expectedApp = localProjectId === 'gest-grupos-hotel' ? 'grupos' : 'mesachef';
+    if (payload.app !== expectedApp || (targetApp && targetApp !== expectedApp))
+      return res.status(403).json({error:'Aplicación incorrecta'});
+
     logger.info(`[Internal Receiver] Petición interna verificada de ${sourceService} hacia ${localProjectId} para pedido ${payload.orderId}`);
 
     try {
@@ -86,6 +91,7 @@ function createInternalReceiver({
         throw new Error(`Proyecto local desconocido: ${localProjectId}`);
       }
 
+      if (!result?.success) return res.status(409).json({success:false});
       res.status(200).json({
         success: true,
         processedAt: new Date().toISOString(),
@@ -96,7 +102,7 @@ function createInternalReceiver({
       logger.error(`[Internal Receiver] Error aplicando pago interno para ${payload.orderId}:`, err);
       res.status(500).json({
         success: false,
-        error: err.message || 'Error procesando cobro interno'
+        error: 'Error procesando cobro interno'
       });
     }
   };

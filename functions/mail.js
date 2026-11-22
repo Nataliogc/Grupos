@@ -7,6 +7,21 @@ const db = admin.firestore();
 const options = { region: 'us-central1' };
 async function member(request) {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para acceder al correo.');
+  const member = (await db.collection('access_members').doc(request.auth.uid).get()).data();
+  if (request.auth.token?.email?.toLowerCase() === 'demo@hotel.com' || member?.active !== true ||
+      !['admin','direction','reception','commercial'].includes(member.role)) throw new HttpsError('permission-denied','Acceso revocado.');
+  if (typeof admin.auth === 'function') {
+    const record = await admin.auth().getUser(request.auth.uid);
+    if (record.disabled || (record.email || '').toLowerCase() === 'demo@hotel.com') {
+      throw new HttpsError('permission-denied', 'Acceso revocado.');
+    }
+    if (record.tokensValidAfterTime && request.auth.token?.auth_time) {
+      const validAfterMs = Date.parse(record.tokensValidAfterTime);
+      if (Number.isFinite(validAfterMs) && Number(request.auth.token.auth_time) * 1000 < validAfterMs) {
+        throw new HttpsError('unauthenticated', 'Sesión revocada.');
+      }
+    }
+  }
   const doc = await db.collection('mailMembers').doc(request.auth.uid).get();
   const data = doc.data();
   if (!data || data.active !== true || !['admin', 'commercial'].includes(data.role)) {

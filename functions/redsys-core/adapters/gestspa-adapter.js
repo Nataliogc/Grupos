@@ -1,3 +1,4 @@
+const { applyOnce } = require('../core/delivery-receipt');
 /**
  * ═════════════════════════════════════════════════════════════════════════════
  * GEST-SPA ADAPTER — ACTUALIZACIÓN ATÓMICA DE RESERVAS Y CITAS DE SPA
@@ -64,6 +65,7 @@ async function applySpaPayment({
 }) {
   const { orderId, referenceId, amountEuros, isAuthorized, authCode, hotelName, fuc, responseCode, bankDescription } = notification;
 
+  if (notification.hotel !== 'cumbria') throw new Error('Hotel incorrecto para Gest-Spa.');
   const found = await findSpaDoc(db, orderId, referenceId);
   if (!found) {
     logger.warn(`[Gest-Spa Adapter] No se encontró reserva de Spa para orden ${orderId} / ref ${referenceId}`);
@@ -71,71 +73,72 @@ async function applySpaPayment({
   }
 
   const { doc, collection } = found;
-  const res = doc.data();
+  return applyOnce(db, doc.ref, notification, (res, write) => {
 
-  const total = parseFloat(res.precio_total || res.precio || res['Importe(*)'] || 0);
-  const existingPaid = (res.payment && typeof res.payment.paid === 'number')
-    ? res.payment.paid
-    : (parseFloat(res.paid_amount || res.pagado || 0) || 0);
+    const total = parseFloat(res.precio_total || res.precio || res['Importe(*)'] || 0);
+    const existingPaid = (res.payment && typeof res.payment.paid === 'number')
+      ? res.payment.paid
+      : (parseFloat(res.paid_amount || res.pagado || 0) || 0);
 
-  const outcome = calculatePaymentOutcome({
-    totalExigible: total,
-    fianzaAcordada: 0,
-    cobradoPrevio: existingPaid,
-    importeNotificado: amountEuros,
-    isAuthorized,
-    paymentType: 'fianza'
-  });
+    const outcome = calculatePaymentOutcome({
+      totalExigible: total,
+      fianzaAcordada: 0,
+      cobradoPrevio: existingPaid,
+      importeNotificado: amountEuros,
+      isAuthorized,
+      paymentType: 'fianza'
+    });
 
-  const existingHistory = (res.payment && Array.isArray(res.payment.history))
-    ? res.payment.history
-    : (Array.isArray(res.history) ? res.history : []);
+    const existingHistory = (res.payment && Array.isArray(res.payment.history))
+      ? res.payment.history
+      : (Array.isArray(res.history) ? res.history : []);
 
-  const updatedHistory = appendPaymentHistory(existingHistory, {
-    fecha: new Date().toISOString(),
-    tipo: outcome.isFullyPaid ? 'pago_completo' : 'garantia_fianza',
-    metodo: 'TPV Redsys PayGold',
-    hotel: hotelName,
-    fuc,
-    orderId,
-    autorizacion: authCode,
-    importe: amountEuros,
-    tarjeta: `${notification.cardBrand || 'Tarjeta'} •••• ${notification.cardLast4 || ''}`,
-    saldoRestante: outcome.saldoPendiente
-  });
+    const updatedHistory = appendPaymentHistory(existingHistory, {
+      fecha: new Date().toISOString(),
+      tipo: outcome.isFullyPaid ? 'pago_completo' : 'garantia_fianza',
+      metodo: 'TPV Redsys PayGold',
+      hotel: hotelName,
+      fuc,
+      orderId,
+      autorizacion: authCode,
+      importe: amountEuros,
+      tarjeta: `${notification.cardBrand || 'Tarjeta'} •••• ${notification.cardLast4 || ''}`,
+      saldoRestante: outcome.saldoPendiente
+    });
 
-  const updatePayload = {
-    payment: {
-      paid: outcome.cobradoTotal,
-      history: updatedHistory,
-      status: outcome.isFullyPaid ? 'paid' : 'partial'
-    },
-    pagado: outcome.isFullyPaid,
-    estado_pago: outcome.isFullyPaid ? 'pagado' : 'parcial',
-    service_payment_status: outcome.isFullyPaid ? 'paid' : 'partial',
-    paygold_status: isAuthorized ? (outcome.isFullyPaid ? 'PAGADO' : 'COBRADO') : 'DENEGADO',
-    paygold_auth: authCode,
-    paygold_paid_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-
-  if (!isAuthorized) {
-    updatePayload.paygold_last_error = {
-      code: responseCode,
-      description: bankDescription,
-      attemptedAt: new Date().toISOString()
+    const updatePayload = {
+      payment: {
+        paid: outcome.cobradoTotal,
+        history: updatedHistory,
+        status: outcome.isFullyPaid ? 'paid' : 'partial'
+      },
+      pagado: outcome.isFullyPaid,
+      estado_pago: outcome.isFullyPaid ? 'pagado' : 'parcial',
+      service_payment_status: outcome.isFullyPaid ? 'paid' : 'partial',
+      paygold_status: isAuthorized ? (outcome.isFullyPaid ? 'PAGADO' : 'COBRADO') : 'DENEGADO',
+      paygold_auth: authCode,
+      paygold_paid_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
-  }
 
-  await doc.ref.update(updatePayload);
-  logger.info(`[Gest-Spa Adapter] Reserva ${doc.id} en ${collection} actualizada con éxito a estado: ${updatePayload.paygold_status} (Pagado: ${outcome.cobradoTotal} €)`);
+    if (!isAuthorized) {
+      updatePayload.paygold_last_error = {
+        code: responseCode,
+        description: bankDescription,
+        attemptedAt: new Date().toISOString()
+      };
+    }
 
-  return {
-    success: true,
-    docId: doc.id,
-    collection,
-    outcome
-  };
+    write(updatePayload);
+    logger.info(`[Gest-Spa Adapter] Reserva ${doc.id} en ${collection} actualizada con éxito a estado: ${updatePayload.paygold_status} (Pagado: ${outcome.cobradoTotal} €)`);
+
+    return {
+      success: true,
+      docId: doc.id,
+      collection,
+      outcome
+    };
+  });
 }
 
 module.exports = {

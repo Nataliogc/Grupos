@@ -68,9 +68,13 @@ var _React = React,
 // --- FIREBASE ---
 var db = window.db;
 var App = function App() {
-  var _config$system6, _config$system7, _config$system8, _config$common2, _config$common3, _resetPassUser$user, _resetPassUser$user2, _resetPassUser$user3;
+  var _config$common2, _config$common3;
   var urlParams = new URLSearchParams(window.location.search);
   var initialTab = urlParams.get('tab') || 'guadiana';
+  if (initialTab === 'users') {
+    window.location.replace('Usuarios.html');
+    return null;
+  }
   var _useState = useState(initialTab),
     _useState2 = _slicedToArray(_useState, 2),
     activeHotel = _useState2[0],
@@ -92,33 +96,7 @@ var App = function App() {
     _useState0 = _slicedToArray(_useState9, 2),
     editingCommercialName = _useState0[0],
     setEditingCommercialName = _useState0[1];
-  // Estados para Administración de Usuarios
-  var _useState1 = useState(''),
-    _useState10 = _slicedToArray(_useState1, 2),
-    userSearch = _useState10[0],
-    setUserSearch = _useState10[1];
-  var _useState11 = useState(false),
-    _useState12 = _slicedToArray(_useState11, 2),
-    showAddUserModal = _useState12[0],
-    setShowAddUserModal = _useState12[1];
-  var _useState13 = useState({
-      name: '',
-      email: '',
-      role: 'Comercial',
-      pass: '1234'
-    }),
-    _useState14 = _slicedToArray(_useState13, 2),
-    newUserData = _useState14[0],
-    setNewUserData = _useState14[1];
-  var _useState15 = useState(null),
-    _useState16 = _slicedToArray(_useState15, 2),
-    resetPassUser = _useState16[0],
-    setResetPassUser = _useState16[1];
-  var _useState17 = useState(null),
-    _useState18 = _slicedToArray(_useState17, 2),
-    editUser = _useState18[0],
-    setEditUser = _useState18[1];
-  var _useState19 = useState({
+  var _useState1 = useState({
       guadiana: {
         name: "Hotel",
         subname: "Guadiana",
@@ -206,31 +184,10 @@ var App = function App() {
         }]
       },
       system: {
-        pin: "1234",
         geminiModel: "gemini-2.4-flash",
         iaStatus: "Online",
         commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
-        users: [{
-          email: "jrecepcion@hotelguadiana.es",
-          pass: "1234",
-          name: "Diana",
-          role: "Comercial"
-        }, {
-          email: "ssanchez@hotelguadiana.es",
-          pass: "1234",
-          name: "Sergio",
-          role: "Dirección"
-        }, {
-          email: "osanchez@hotelguadiana.es",
-          pass: "1234",
-          name: "Oscar",
-          role: "Dirección"
-        }, {
-          email: "comunicaciones@hotelguadiana.es",
-          pass: "1234",
-          name: "Natalio",
-          role: "Administrador"
-        }]
+        users: []
       },
       common: {
         services: [{
@@ -302,30 +259,15 @@ var App = function App() {
         }]
       }
     }),
-    _useState20 = _slicedToArray(_useState19, 2),
-    config = _useState20[0],
-    setConfig = _useState20[1];
+    _useState10 = _slicedToArray(_useState1, 2),
+    config = _useState10[0],
+    setConfig = _useState10[1];
   useEffect(function () {
     // Cargar config desde Firestore si existe
     db.collection("settings").doc("main").get().then(function (doc) {
       if (doc.exists) {
         var data = doc.data();
-        var rawCloudUsers = data.system && Array.isArray(data.system.users) && data.system.users.length > 0 ? data.system.users : null;
-        var hasLegacyDianaEmail = rawCloudUsers && rawCloudUsers.some(function (u) {
-          return (u.email || '').toLowerCase() === 'dianahotelguadiana@gmail.com';
-        });
-        var migratedCloudUsers = hasLegacyDianaEmail ? rawCloudUsers.map(function (u) {
-          return (u.email || '').toLowerCase() === 'dianahotelguadiana@gmail.com' ? _objectSpread(_objectSpread({}, u), {}, {
-            email: 'jrecepcion@hotelguadiana.es'
-          }) : u;
-        }) : rawCloudUsers;
-        if (hasLegacyDianaEmail) {
-          db.collection("settings").doc("main").update({
-            "system.users": migratedCloudUsers
-          }).catch(function () {});
-        }
         setConfig(function (prev) {
-          var cloudUsers = migratedCloudUsers || prev.system.users;
           // MIGRATION: Migrate clauses from guadiana to common if missing
           var migratedCommon = _objectSpread(_objectSpread({}, prev.common), data.common || {});
           if (!migratedCommon.clauses || migratedCommon.clauses.length === 0) {
@@ -337,8 +279,17 @@ var App = function App() {
           return _objectSpread(_objectSpread(_objectSpread({}, prev), data), {}, {
             common: migratedCommon,
             system: _objectSpread(_objectSpread(_objectSpread({}, prev.system), data.system || {}), {}, {
-              users: cloudUsers
+              users: []
             })
+          });
+        });
+        setConfig(function (prev) {
+          if (!prev.system) return prev;
+          var cleanSystem = _objectSpread({}, prev.system);
+          delete cleanSystem.geminiApiKey;
+          delete cleanSystem.pin;
+          return _objectSpread(_objectSpread({}, prev), {}, {
+            system: cleanSystem
           });
         });
       }
@@ -353,7 +304,12 @@ var App = function App() {
           case 0:
             setLoading(true);
             _context.p = 1;
-            dataToSave = _objectSpread({}, config);
+            dataToSave = _objectSpread(_objectSpread({}, config), {}, {
+              system: _objectSpread({}, config.system)
+            });
+            delete dataToSave.system.users;
+            delete dataToSave.system.pin;
+            delete dataToSave.system.geminiApiKey;
             if (dataToSave.guadiana) {
               delete dataToSave.guadiana.clauses;
               delete dataToSave.guadiana.confirmationClauses;
@@ -394,7 +350,7 @@ var App = function App() {
   }();
   var handleResetAllGroups = /*#__PURE__*/function () {
     var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-      var snapshot, batch, count, _t2;
+      var groupsQuery, snapshot, batch, count, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
@@ -406,8 +362,9 @@ var App = function App() {
           case 1:
             setLoading(true);
             _context2.p = 2;
+            groupsQuery = typeof window.getNexusGroupsQuery === "function" ? window.getNexusGroupsQuery(db) : db.collection("groups");
             _context2.n = 3;
-            return db.collection("groups").get();
+            return groupsQuery.get();
           case 3:
             snapshot = _context2.v;
             batch = db.batch();
@@ -507,401 +464,6 @@ var App = function App() {
       return _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, hotel, _objectSpread(_objectSpread({}, prev[hotel]), {}, _defineProperty({}, field, value))));
     });
   };
-  var handleCreateUser = /*#__PURE__*/function () {
-    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var _config$system;
-      var name, email, role, pass, currentUsers, emailLower, newUser, updatedUsers, updatedConfig, _t4;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
-          case 0:
-            name = (newUserData.name || '').trim();
-            email = (newUserData.email || '').trim();
-            role = newUserData.role || "Comercial";
-            pass = (newUserData.pass || '').trim();
-            if (name) {
-              _context4.n = 1;
-              break;
-            }
-            alert("Por favor, introduce el nombre del usuario.");
-            return _context4.a(2);
-          case 1:
-            if (email) {
-              _context4.n = 2;
-              break;
-            }
-            alert("Por favor, introduce el correo electrónico del usuario.");
-            return _context4.a(2);
-          case 2:
-            if (!(!pass || pass.length < 4)) {
-              _context4.n = 3;
-              break;
-            }
-            alert("La contraseña debe tener al menos 4 caracteres.");
-            return _context4.a(2);
-          case 3:
-            currentUsers = _toConsumableArray(((_config$system = config.system) === null || _config$system === void 0 ? void 0 : _config$system.users) || []);
-            emailLower = email.toLowerCase();
-            if (!currentUsers.some(function (u) {
-              return (u.email || '').toLowerCase() === emailLower;
-            })) {
-              _context4.n = 4;
-              break;
-            }
-            alert("Ya existe un usuario registrado con este correo electrónico.");
-            return _context4.a(2);
-          case 4:
-            newUser = {
-              id: name.toLowerCase().replace(/[^a-z0-9]/g, ''),
-              name: name,
-              email: email,
-              role: role,
-              pass: pass,
-              active: true,
-              revoked: false
-            };
-            updatedUsers = [].concat(_toConsumableArray(currentUsers), [newUser]);
-            updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
-              system: _objectSpread(_objectSpread({}, config.system || {}), {}, {
-                users: updatedUsers
-              })
-            });
-            setConfig(updatedConfig);
-            setLoading(true);
-            _context4.p = 5;
-            _context4.n = 6;
-            return db.collection("settings").doc("main").set(updatedConfig);
-          case 6:
-            setMessage({
-              type: 'success',
-              text: "Usuario \"".concat(name, "\" creado correctamente en el sistema.")
-            });
-            setShowAddUserModal(false);
-            setNewUserData({
-              name: '',
-              email: '',
-              role: 'Comercial',
-              pass: '1234'
-            });
-            _context4.n = 8;
-            break;
-          case 7:
-            _context4.p = 7;
-            _t4 = _context4.v;
-            setMessage({
-              type: 'error',
-              text: 'Error al persistir el nuevo usuario en Firestore.'
-            });
-          case 8:
-            setLoading(false);
-            setTimeout(function () {
-              return setMessage(null);
-            }, 3500);
-          case 9:
-            return _context4.a(2);
-        }
-      }, _callee4, null, [[5, 7]]);
-    }));
-    return function handleCreateUser() {
-      return _ref4.apply(this, arguments);
-    };
-  }();
-  var handleToggleRevokeUser = /*#__PURE__*/function () {
-    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(idx) {
-      var _config$system2;
-      var users, target, isNatalio, currentlyRevoked, nextRevoked, ok, updatedConfig, _t5;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
-          case 0:
-            users = _toConsumableArray(((_config$system2 = config.system) === null || _config$system2 === void 0 ? void 0 : _config$system2.users) || []);
-            target = users[idx];
-            if (target) {
-              _context5.n = 1;
-              break;
-            }
-            return _context5.a(2);
-          case 1:
-            isNatalio = target.name && target.name.toLowerCase() === 'natalio' || target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
-            if (!isNatalio) {
-              _context5.n = 2;
-              break;
-            }
-            alert("Por seguridad, no es posible revocar el acceso a la cuenta principal del Administrador (Natalio).");
-            return _context5.a(2);
-          case 2:
-            currentlyRevoked = target.revoked === true || target.active === false;
-            nextRevoked = !currentlyRevoked;
-            if (!nextRevoked) {
-              _context5.n = 3;
-              break;
-            }
-            ok = window.confirm("\xBFConfirmas que deseas REVOCAR el acceso a \"".concat(target.name, "\"? El usuario no podr\xE1 iniciar sesi\xF3n en Nexus Groups."));
-            if (ok) {
-              _context5.n = 3;
-              break;
-            }
-            return _context5.a(2);
-          case 3:
-            users[idx] = _objectSpread(_objectSpread({}, target), {}, {
-              revoked: nextRevoked,
-              active: !nextRevoked
-            });
-            updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
-              system: _objectSpread(_objectSpread({}, config.system || {}), {}, {
-                users: users
-              })
-            });
-            setConfig(updatedConfig);
-            setLoading(true);
-            _context5.p = 4;
-            _context5.n = 5;
-            return db.collection("settings").doc("main").set(updatedConfig);
-          case 5:
-            setMessage({
-              type: 'success',
-              text: nextRevoked ? "Acceso de \"".concat(target.name, "\" revocado correctamente.") : "Acceso de \"".concat(target.name, "\" reactivado correctamente.")
-            });
-            _context5.n = 7;
-            break;
-          case 6:
-            _context5.p = 6;
-            _t5 = _context5.v;
-            setMessage({
-              type: 'error',
-              text: 'Error al actualizar el estado del usuario.'
-            });
-          case 7:
-            setLoading(false);
-            setTimeout(function () {
-              return setMessage(null);
-            }, 3500);
-          case 8:
-            return _context5.a(2);
-        }
-      }, _callee5, null, [[4, 6]]);
-    }));
-    return function handleToggleRevokeUser(_x4) {
-      return _ref5.apply(this, arguments);
-    };
-  }();
-  var handleResetUserPass = /*#__PURE__*/function () {
-    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(idx, newPass) {
-      var _config$system3;
-      var trimmed, users, target, updatedConfig, _t6;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
-          case 0:
-            trimmed = (newPass || '').trim();
-            if (!(!trimmed || trimmed.length < 4)) {
-              _context6.n = 1;
-              break;
-            }
-            alert("La contraseña debe contener al menos 4 caracteres.");
-            return _context6.a(2);
-          case 1:
-            users = _toConsumableArray(((_config$system3 = config.system) === null || _config$system3 === void 0 ? void 0 : _config$system3.users) || []);
-            target = users[idx];
-            if (target) {
-              _context6.n = 2;
-              break;
-            }
-            return _context6.a(2);
-          case 2:
-            users[idx] = _objectSpread(_objectSpread({}, target), {}, {
-              pass: trimmed
-            });
-            updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
-              system: _objectSpread(_objectSpread({}, config.system || {}), {}, {
-                users: users
-              })
-            });
-            setConfig(updatedConfig);
-            setLoading(true);
-            _context6.p = 3;
-            _context6.n = 4;
-            return db.collection("settings").doc("main").set(updatedConfig);
-          case 4:
-            setMessage({
-              type: 'success',
-              text: "Contrase\xF1a de \"".concat(target.name, "\" restablecida con \xE9xito a \"").concat(trimmed, "\".")
-            });
-            setResetPassUser(null);
-            _context6.n = 6;
-            break;
-          case 5:
-            _context6.p = 5;
-            _t6 = _context6.v;
-            setMessage({
-              type: 'error',
-              text: 'Error al actualizar la contraseña en Firestore.'
-            });
-          case 6:
-            setLoading(false);
-            setTimeout(function () {
-              return setMessage(null);
-            }, 3500);
-          case 7:
-            return _context6.a(2);
-        }
-      }, _callee6, null, [[3, 5]]);
-    }));
-    return function handleResetUserPass(_x5, _x6) {
-      return _ref6.apply(this, arguments);
-    };
-  }();
-  var handleEditUser = /*#__PURE__*/function () {
-    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-      var _config$system4;
-      var name, email, role, users, target, duplicate, updatedConfig, _t7;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
-          case 0:
-            if (editUser) {
-              _context7.n = 1;
-              break;
-            }
-            return _context7.a(2);
-          case 1:
-            name = (editUser.name || '').trim();
-            email = (editUser.email || '').trim().toLowerCase();
-            role = editUser.role || 'Comercial';
-            if (!(!name || !email)) {
-              _context7.n = 2;
-              break;
-            }
-            alert("El nombre y el correo electrónico son obligatorios.");
-            return _context7.a(2);
-          case 2:
-            users = _toConsumableArray(((_config$system4 = config.system) === null || _config$system4 === void 0 ? void 0 : _config$system4.users) || []);
-            target = users[editUser.idx];
-            if (target) {
-              _context7.n = 3;
-              break;
-            }
-            return _context7.a(2);
-          case 3:
-            duplicate = users.some(function (u, idx) {
-              return idx !== editUser.idx && (u.email || '').toLowerCase() === email;
-            });
-            if (!duplicate) {
-              _context7.n = 4;
-              break;
-            }
-            alert("Ya existe otro usuario registrado con ese correo electrónico.");
-            return _context7.a(2);
-          case 4:
-            users[editUser.idx] = _objectSpread(_objectSpread({}, target), {}, {
-              name: name,
-              email: email,
-              role: role
-            });
-            updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
-              system: _objectSpread(_objectSpread({}, config.system || {}), {}, {
-                users: users
-              })
-            });
-            setConfig(updatedConfig);
-            setLoading(true);
-            _context7.p = 5;
-            _context7.n = 6;
-            return db.collection("settings").doc("main").set(updatedConfig);
-          case 6:
-            setMessage({
-              type: 'success',
-              text: "Usuario \"".concat(name, "\" actualizado correctamente.")
-            });
-            setEditUser(null);
-            _context7.n = 8;
-            break;
-          case 7:
-            _context7.p = 7;
-            _t7 = _context7.v;
-            setMessage({
-              type: 'error',
-              text: 'Error al actualizar los datos del usuario en Firestore.'
-            });
-          case 8:
-            setLoading(false);
-            setTimeout(function () {
-              return setMessage(null);
-            }, 3500);
-          case 9:
-            return _context7.a(2);
-        }
-      }, _callee7, null, [[5, 7]]);
-    }));
-    return function handleEditUser() {
-      return _ref7.apply(this, arguments);
-    };
-  }();
-  var handleDeleteUser = /*#__PURE__*/function () {
-    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(idx) {
-      var _config$system5;
-      var users, target, isNatalio, ok, updatedConfig, _t8;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
-          case 0:
-            users = _toConsumableArray(((_config$system5 = config.system) === null || _config$system5 === void 0 ? void 0 : _config$system5.users) || []);
-            target = users[idx];
-            if (target) {
-              _context8.n = 1;
-              break;
-            }
-            return _context8.a(2);
-          case 1:
-            isNatalio = target.name && target.name.toLowerCase() === 'natalio' || target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
-            if (!isNatalio) {
-              _context8.n = 2;
-              break;
-            }
-            alert("No es posible eliminar la cuenta principal del Administrador (Natalio).");
-            return _context8.a(2);
-          case 2:
-            ok = window.confirm("\xBFEst\xE1s seguro de que deseas ELIMINAR permanentemente a \"".concat(target.name, "\" (").concat(target.email, ")? Esta acci\xF3n no se puede deshacer."));
-            if (ok) {
-              _context8.n = 3;
-              break;
-            }
-            return _context8.a(2);
-          case 3:
-            users.splice(idx, 1);
-            updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
-              system: _objectSpread(_objectSpread({}, config.system || {}), {}, {
-                users: users
-              })
-            });
-            setConfig(updatedConfig);
-            setLoading(true);
-            _context8.p = 4;
-            _context8.n = 5;
-            return db.collection("settings").doc("main").set(updatedConfig);
-          case 5:
-            setMessage({
-              type: 'success',
-              text: "Usuario \"".concat(target.name, "\" eliminado de la plataforma.")
-            });
-            _context8.n = 7;
-            break;
-          case 6:
-            _context8.p = 6;
-            _t8 = _context8.v;
-            setMessage({
-              type: 'error',
-              text: 'Error al eliminar el usuario en Firestore.'
-            });
-          case 7:
-            setLoading(false);
-            setTimeout(function () {
-              return setMessage(null);
-            }, 3500);
-          case 8:
-            return _context8.a(2);
-        }
-      }, _callee8, null, [[4, 6]]);
-    }));
-    return function handleDeleteUser(_x7) {
-      return _ref8.apply(this, arguments);
-    };
-  }();
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen"
   }, /*#__PURE__*/React.createElement("main", {
@@ -932,11 +494,7 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: activeHotel === 'users' ? 'shield-check' : activeHotel === 'system' ? 'settings-2' : activeHotel === 'commercials' ? 'users' : activeHotel === 'services' ? 'box' : 'building-2',
     className: "w-6 h-6 text-[#2d5a43]"
-  })), activeHotel === 'users' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-xl font-bold text-slate-900 uppercase"
-  }, "Gesti\xF3n de Usuarios y Accesos"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-slate-400"
-  }, "Control centralizado de cuentas autorizadas, contrase\xF1as y permisos de acceso.")) : activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+  })), activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-xl font-bold text-slate-900 uppercase"
   }, "Cat\xE1logo de Servicios"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-slate-400"
@@ -946,202 +504,7 @@ var App = function App() {
     className: "text-xs text-slate-400"
   }, "Edita los valores que aparecer\xE1n en las facturas y documentos oficiales."))), /*#__PURE__*/React.createElement("div", {
     className: "p-10"
-  }, activeHotel === 'users' ? /*#__PURE__*/React.createElement("div", {
-    className: "space-y-6 animate-fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gradient-to-r from-slate-900 via-slate-800 to-[#1e3a2c] rounded-3xl p-7 text-white flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl relative overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative z-10 space-y-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
-  }, "Seguridad Cloud"), /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-300 text-xs font-semibold"
-  }, "\u2022 Panel de Administraci\xF3n")), /*#__PURE__*/React.createElement("h4", {
-    className: "text-xl font-bold text-white tracking-tight"
-  }, "Directorio de Usuarios y Credenciales"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-slate-300 max-w-xl leading-relaxed"
-  }, "Gestiona las altas de nuevos colaboradores, restablece contrase\xF1as al instante o revoca temporalmente el acceso sin perder el historial."), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 pt-2 text-xs"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-xl"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "w-2 h-2 rounded-full bg-emerald-400"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "font-bold"
-  }, (((_config$system6 = config.system) === null || _config$system6 === void 0 ? void 0 : _config$system6.users) || []).filter(function (u) {
-    return u.active !== false && !u.revoked;
-  }).length, " Activos")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-xl"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "w-2 h-2 rounded-full bg-rose-400"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "font-bold"
-  }, (((_config$system7 = config.system) === null || _config$system7 === void 0 ? void 0 : _config$system7.users) || []).filter(function (u) {
-    return u.revoked === true || u.active === false;
-  }).length, " Revocados")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5 bg-amber-400/15 text-amber-200 border border-amber-400/30 px-3 py-1 rounded-xl"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "key",
-    className: "w-3.5 h-3.5 text-amber-300"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "font-bold"
-  }, "Clave por defecto: ", /*#__PURE__*/React.createElement("span", {
-    className: "font-mono text-white"
-  }, "1234"))))), /*#__PURE__*/React.createElement("div", {
-    className: "relative z-10 flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setShowAddUserModal(true);
-    },
-    className: "bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-lg hover:shadow-emerald-900/30 transition-all flex items-center gap-2 cursor-pointer shrink-0"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "user-plus",
-    className: "w-4 h-4"
-  }), "Nuevo Usuario"))), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative flex-1 max-w-md"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: userSearch,
-    onChange: function onChange(e) {
-      return setUserSearch(e.target.value);
-    },
-    placeholder: "Buscar por nombre, correo o rol...",
-    className: "w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-8 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-[#2d5a43] transition-all shadow-xs"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute left-3.5 top-3 text-slate-400 pointer-events-none"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "search",
-    className: "w-3.5 h-3.5"
-  })), userSearch && /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setUserSearch('');
-    },
-    className: "absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "x",
-    className: "w-3.5 h-3.5"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "text-[11px] font-bold text-slate-400 text-right"
-  }, (((_config$system8 = config.system) === null || _config$system8 === void 0 ? void 0 : _config$system8.users) || []).length, " usuarios configurados en el sistema")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs divide-y divide-slate-100"
-  }, function (_config$system9) {
-    var rawUsers = ((_config$system9 = config.system) === null || _config$system9 === void 0 ? void 0 : _config$system9.users) || [];
-    var searchLow = (userSearch || '').toLowerCase().trim();
-    var filtered = searchLow ? rawUsers.filter(function (u) {
-      return u.name && u.name.toLowerCase().includes(searchLow) || u.email && u.email.toLowerCase().includes(searchLow) || u.role && u.role.toLowerCase().includes(searchLow);
-    }) : rawUsers;
-    if (filtered.length === 0) {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "p-12 text-center text-slate-400 space-y-2"
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "users",
-        className: "w-8 h-8 mx-auto text-slate-300"
-      }), /*#__PURE__*/React.createElement("p", {
-        className: "text-xs font-bold"
-      }, "No se encontraron usuarios coincidentes."));
-    }
-    return filtered.map(function (u, fIdx) {
-      var originalIdx = rawUsers.indexOf(u);
-      var isRevoked = u.revoked === true || u.active === false;
-      var isNatalio = u.name && u.name.toLowerCase() === 'natalio' || u.email && u.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
-      var roleBadgeClass = u.role === 'Administrador' ? 'bg-purple-50 text-purple-700 border-purple-200' : u.role === 'Dirección' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : u.role === 'Recepción' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      var avatarBg = u.role === 'Administrador' ? 'from-purple-700 to-indigo-600' : u.role === 'Dirección' ? 'from-indigo-700 to-teal-600' : 'from-[#2d5a43] to-emerald-500';
-      return /*#__PURE__*/React.createElement("div", {
-        key: fIdx,
-        className: "p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ".concat(isRevoked ? 'bg-rose-50/20' : 'hover:bg-slate-50/60')
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center gap-3.5 min-w-0"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "w-11 h-11 rounded-2xl bg-gradient-to-tr ".concat(avatarBg, " text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0 select-none")
-      }, (u.name || 'U').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
-        className: "min-w-0"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center gap-2 flex-wrap mb-1"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "text-sm font-bold ".concat(isRevoked ? 'line-through text-slate-500' : 'text-slate-800')
-      }, u.name), /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ".concat(roleBadgeClass)
-      }, u.role || 'Comercial'), isRevoked ? /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 uppercase tracking-wider flex items-center gap-1"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "w-1.5 h-1.5 rounded-full bg-rose-500"
-      }), "Acceso Revocado") : /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider flex items-center gap-1"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "w-1.5 h-1.5 rounded-full bg-emerald-500"
-      }), "Activo")), /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center gap-2 flex-wrap text-xs text-slate-400"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "truncate"
-      }, u.email), (u.pass || '1234') === '1234' && /*#__PURE__*/React.createElement("span", {
-        className: "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1"
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "key",
-        className: "w-3 h-3 text-amber-500"
-      }), "Clave por defecto: ", /*#__PURE__*/React.createElement("span", {
-        className: "font-mono"
-      }, "1234"))))), /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center gap-2 shrink-0 self-end md:self-center"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        onClick: function onClick() {
-          return setEditUser({
-            idx: originalIdx,
-            name: u.name || '',
-            email: u.email || '',
-            role: u.role || 'Comercial'
-          });
-        },
-        className: "px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-emerald-50 hover:text-[#2d5a43] border border-slate-200 hover:border-emerald-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer",
-        title: "Editar datos de ".concat(u.name)
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "edit-3",
-        className: "w-3.5 h-3.5 text-[#2d5a43]"
-      }), /*#__PURE__*/React.createElement("span", null, "Editar")), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        onClick: function onClick() {
-          return setResetPassUser({
-            idx: originalIdx,
-            user: u,
-            newPass: ''
-          });
-        },
-        className: "px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 hover:border-amber-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer",
-        title: "Resetear contrase\xF1a de ".concat(u.name)
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "key",
-        className: "w-3.5 h-3.5 text-amber-500"
-      }), /*#__PURE__*/React.createElement("span", null, "Resetear Clave")), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        onClick: function onClick() {
-          return handleToggleRevokeUser(originalIdx);
-        },
-        disabled: isNatalio,
-        className: "px-3 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer ".concat(isNatalio ? 'opacity-30 cursor-not-allowed border-slate-200 text-slate-400' : isRevoked ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-white hover:bg-rose-50 text-rose-600 border-slate-200 hover:border-rose-200'),
-        title: isNatalio ? 'La cuenta del Administrador principal no puede ser revocada' : isRevoked ? 'Reactivar acceso' : 'Revocar acceso'
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: isRevoked ? 'user-check' : 'user-x',
-        className: "w-3.5 h-3.5"
-      }), /*#__PURE__*/React.createElement("span", null, isRevoked ? 'Reactivar Acceso' : 'Revocar Acceso')), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        onClick: function onClick() {
-          return handleDeleteUser(originalIdx);
-        },
-        disabled: isNatalio,
-        className: "p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all cursor-pointer ".concat(isNatalio ? 'opacity-20 cursor-not-allowed' : ''),
-        title: isNatalio ? 'No se puede eliminar al Administrador' : "Eliminar a ".concat(u.name)
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "trash-2",
-        className: "w-4 h-4"
-      }))));
-    });
-  }(), /*#__PURE__*/React.createElement("div", {
+  }, activeHotel === 'commercials' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between items-center mb-6"
@@ -1209,12 +572,12 @@ var App = function App() {
     var inactiveCommercials = allCommercials.filter(function (c) {
       return !c.isActive;
     });
-    var renderComm = function renderComm(_ref9) {
-      var comm = _ref9.comm,
-        idx = _ref9.originalIdx,
-        name = _ref9.name,
-        isActive = _ref9.isActive,
-        isObject = _ref9.isObject;
+    var renderComm = function renderComm(_ref4) {
+      var comm = _ref4.comm,
+        idx = _ref4.originalIdx,
+        name = _ref4.name,
+        isActive = _ref4.isActive,
+        isObject = _ref4.isObject;
       return /*#__PURE__*/React.createElement("div", {
         key: idx,
         className: "border p-3 rounded-xl flex items-center justify-between gap-4 transition-all group ".concat(isActive ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-75')
@@ -1672,33 +1035,19 @@ var App = function App() {
     value: "gemini-1.5-flash"
   }, "Gemini 1.5 Flash (Est\xE1ndar)"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1"
-  }, "Gemini API Key (Privada)"), /*#__PURE__*/React.createElement("input", {
-    type: "password",
-    value: config.system.geminiApiKey || "",
-    onChange: function onChange(e) {
-      return handleChange('system', 'geminiApiKey', e.target.value);
-    },
-    placeholder: "Paste your API key here...",
-    className: "w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none focus:bg-white/20 transition-all"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-emerald-200/50 mt-1 italic"
-  }, "La clave se guarda encriptada en tu instancia privada de Firestore."))))), /*#__PURE__*/React.createElement("div", {
+  }, "Credenciales de Gemini"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-50/90 bg-white/10 border border-white/20 rounded-xl px-4 py-3 leading-relaxed"
+  }, "Gestionadas exclusivamente en servidor mediante Google Cloud Secret Manager (", /*#__PURE__*/React.createElement("code", {
+    className: "font-mono"
+  }, "GEMINI_KEY"), ") y Cloud Functions autenticadas. No se almacenan claves API en el navegador ni en Firestore."))))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-6"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "p-6 bg-white border border-slate-200 rounded-3xl shadow-sm"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2"
-  }, "PIN de Acceso"), /*#__PURE__*/React.createElement("input", {
-    type: "password",
-    value: config.system.pin,
-    onChange: function onChange(e) {
-      return handleChange('system', 'pin', e.target.value);
-    },
-    maxLength: "4",
-    className: "w-full text-2xl font-bold tracking-[0.5em] text-center border-b border-slate-100 py-2 outline-none focus:border-[#2d5a43] transition-all"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-slate-400 mt-2 italic text-center text-wrap"
-  }, "Este PIN se usar\xE1 en la pantalla de login unificada.")), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col justify-center"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+  }, "Autenticaci\xF3n de Acceso"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-600 leading-relaxed"
+  }, "El PIN compartido ha sido retirado. Todos los accesos se gestionan exclusivamente mediante cuentas individuales en Firebase Authentication.")), /*#__PURE__*/React.createElement("div", {
     className: "p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1"
@@ -1719,38 +1068,13 @@ var App = function App() {
   }, "Cuentas con acceso a la plataforma.")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: function onClick() {
-      return setActiveHotel('users');
+      return window.location.assign('Usuarios.html');
     },
     className: "text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "shield-check",
     size: 13
-  }), "Administrar Accesos")), /*#__PURE__*/React.createElement("div", {
-    className: "divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden"
-  }, (config.system.users || []).map(function (u, uIdx) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: uIdx,
-      className: "p-3.5 bg-white hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2d5a43] to-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0"
-    }, (u.name || 'U').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2 flex-wrap"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-xs font-bold text-slate-800"
-    }, u.name), /*#__PURE__*/React.createElement("span", {
-      className: "text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
-    }, u.role)), /*#__PURE__*/React.createElement("span", {
-      className: "text-[11px] text-slate-400 block truncate"
-    }, u.email))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2 shrink-0"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] text-slate-400 font-mono tracking-widest bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 select-none"
-    }, "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022")));
-  })))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }), "Administrar Accesos")))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
@@ -1896,267 +1220,7 @@ var App = function App() {
   }, "Nexus Groups Deployment v1.2"), /*#__PURE__*/React.createElement("img", {
     src: "Nexus Groups/Nexus_Groups_ICO-removebg-preview.png",
     className: "h-8 w-8 grayscale"
-  }))), showAddUserModal && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "user-plus",
-    className: "w-5 h-5"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold text-base text-white tracking-tight"
-  }, "Alta de Nuevo Usuario"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-slate-300"
-  }, "Crea una cuenta de acceso para Nexus Groups"))), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setShowAddUserModal(false);
-    },
-    className: "text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "x",
-    className: "w-5 h-5"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-6 space-y-4"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Nombre Completo"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: newUserData.name,
-    onChange: function onChange(e) {
-      return setNewUserData(_objectSpread(_objectSpread({}, newUserData), {}, {
-        name: e.target.value
-      }));
-    },
-    placeholder: "Ej: Marta G\xF3mez",
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Correo Electr\xF3nico"), /*#__PURE__*/React.createElement("input", {
-    type: "email",
-    value: newUserData.email,
-    onChange: function onChange(e) {
-      return setNewUserData(_objectSpread(_objectSpread({}, newUserData), {}, {
-        email: e.target.value
-      }));
-    },
-    placeholder: "Ej: mgomez@hotelguadiana.es",
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Rol / Permisos"), /*#__PURE__*/React.createElement("select", {
-    value: newUserData.role,
-    onChange: function onChange(e) {
-      return setNewUserData(_objectSpread(_objectSpread({}, newUserData), {}, {
-        role: e.target.value
-      }));
-    },
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "Comercial"
-  }, "Comercial"), /*#__PURE__*/React.createElement("option", {
-    value: "Direcci\xF3n"
-  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("option", {
-    value: "Administrador"
-  }, "Administrador"), /*#__PURE__*/React.createElement("option", {
-    value: "Recepci\xF3n"
-  }, "Recepci\xF3n"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Contrase\xF1a Inicial"), /*#__PURE__*/React.createElement("input", {
-    type: "password",
-    value: newUserData.pass,
-    onChange: function onChange(e) {
-      return setNewUserData(_objectSpread(_objectSpread({}, newUserData), {}, {
-        pass: e.target.value
-      }));
-    },
-    placeholder: "M\xEDn. 4 caracteres",
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all text-center"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "pt-3 flex items-center justify-end gap-2.5"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setShowAddUserModal(false);
-    },
-    className: "px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: handleCreateUser,
-    className: "bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "check",
-    className: "w-3.5 h-3.5"
-  }), "Crear y Activar Usuario"))))), resetPassUser && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gradient-to-r from-amber-600 to-amber-700 p-6 text-white flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "key",
-    className: "w-5 h-5"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold text-base text-white tracking-tight"
-  }, "Restablecer Contrase\xF1a"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-amber-100"
-  }, "Asigna una nueva clave para el usuario"))), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setResetPassUser(null);
-    },
-    className: "text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "x",
-    className: "w-5 h-5"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-6 space-y-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-3.5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-9 h-9 rounded-xl bg-[#2d5a43] text-white font-black text-xs flex items-center justify-center"
-  }, (((_resetPassUser$user = resetPassUser.user) === null || _resetPassUser$user === void 0 ? void 0 : _resetPassUser$user.name) || 'U').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-bold text-slate-800 block"
-  }, (_resetPassUser$user2 = resetPassUser.user) === null || _resetPassUser$user2 === void 0 ? void 0 : _resetPassUser$user2.name), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] text-slate-400 block"
-  }, (_resetPassUser$user3 = resetPassUser.user) === null || _resetPassUser$user3 === void 0 ? void 0 : _resetPassUser$user3.email))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Nueva Contrase\xF1a"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: resetPassUser.newPass,
-    onChange: function onChange(e) {
-      return setResetPassUser(_objectSpread(_objectSpread({}, resetPassUser), {}, {
-        newPass: e.target.value
-      }));
-    },
-    placeholder: "Introduce la nueva clave (m\xEDn. 4 caracteres)",
-    className: "flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all font-mono"
-  }), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setResetPassUser(_objectSpread(_objectSpread({}, resetPassUser), {}, {
-        newPass: "1234"
-      }));
-    },
-    className: "px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap",
-    title: "Usar clave por defecto"
-  }, "1234"))), /*#__PURE__*/React.createElement("div", {
-    className: "pt-2 flex items-center justify-end gap-2.5"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setResetPassUser(null);
-    },
-    className: "px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return handleResetUserPass(resetPassUser.idx, resetPassUser.newPass);
-    },
-    className: "bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "check",
-    className: "w-3.5 h-3.5"
-  }), "Guardar Nueva Clave"))))), editUser && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gradient-to-r from-[#2d5a43] to-[#1e3a2c] p-6 text-white flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "edit-3",
-    className: "w-5 h-5"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "font-bold text-base text-white tracking-tight"
-  }, "Editar Usuario"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-emerald-100"
-  }, "Modifica el nombre, correo o rol de acceso"))), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setEditUser(null);
-    },
-    className: "text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "x",
-    className: "w-5 h-5"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-6 space-y-4"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Nombre Completo"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: editUser.name,
-    onChange: function onChange(e) {
-      return setEditUser(_objectSpread(_objectSpread({}, editUser), {}, {
-        name: e.target.value
-      }));
-    },
-    placeholder: "Ej. Diana",
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Correo Electr\xF3nico (Usuario)"), /*#__PURE__*/React.createElement("input", {
-    type: "email",
-    value: editUser.email,
-    onChange: function onChange(e) {
-      return setEditUser(_objectSpread(_objectSpread({}, editUser), {}, {
-        email: e.target.value
-      }));
-    },
-    placeholder: "usuario@hotelguadiana.es",
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
-  }, "Rol de Acceso"), /*#__PURE__*/React.createElement("select", {
-    value: editUser.role,
-    onChange: function onChange(e) {
-      return setEditUser(_objectSpread(_objectSpread({}, editUser), {}, {
-        role: e.target.value
-      }));
-    },
-    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "Comercial"
-  }, "Comercial"), /*#__PURE__*/React.createElement("option", {
-    value: "Direcci\xF3n"
-  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("option", {
-    value: "Administrador"
-  }, "Administrador"), /*#__PURE__*/React.createElement("option", {
-    value: "Recepci\xF3n"
-  }, "Recepci\xF3n"))), /*#__PURE__*/React.createElement("div", {
-    className: "pt-2 flex items-center justify-end gap-2.5"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setEditUser(null);
-    },
-    className: "px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: handleEditUser,
-    className: "bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "check",
-    className: "w-3.5 h-3.5"
-  }), "Guardar Cambios"))))));
+  }))));
 };
 var root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(/*#__PURE__*/React.createElement(App, null));

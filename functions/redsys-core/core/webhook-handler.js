@@ -70,10 +70,16 @@ async function processRedsysNotification({
   }
 
   const orderId = String(params.Ds_Order || params.DS_MERCHANT_ORDER || '').trim();
+  if (!/^\d{4}[a-z0-9]{0,8}$/i.test(orderId)) return {status:400, message:'Pedido incorrecto'};
   const merchantCode = String(params.Ds_MerchantCode || params.DS_MERCHANT_MERCHANTCODE || '').trim();
   const responseCode = String(params.Ds_Response || params.DS_RESPONSE || '').trim();
   const authCode = String(params.Ds_AuthorisationCode || params.DS_AUTHORISATIONCODE || '').trim();
-  const amountCents = parseInt(params.Ds_Amount || params.DS_MERCHANT_AMOUNT || '0', 10);
+  const rawAmount = String(params.Ds_Amount ?? params.DS_MERCHANT_AMOUNT ?? '');
+  if (!/^\d{1,12}$/.test(rawAmount) || Number(rawAmount) <= 0 || !/^\d{1,4}$/.test(responseCode))
+    return { status: 400, message: 'Datos bancarios incorrectos' };
+  const amountCents = Number(rawAmount);
+  const currency = params.Ds_Currency ?? params.DS_MERCHANT_CURRENCY;
+  if (currency != null && String(currency) !== '978') return {status:409, message:'Moneda incorrecta'};
   const amountEuros = amountCents / 100;
   const cardRaw = String(params.Ds_Card_Number || '');
   const brandCode = String(params.Ds_Card_Brand || '');
@@ -87,6 +93,9 @@ async function processRedsysNotification({
   }
 
   const hotelConfig = HOTELS[hotelKey];
+  const terminal = params.Ds_Terminal ?? params.DS_MERCHANT_TERMINAL;
+  if (terminal != null && Number(terminal) !== Number(hotelConfig.terminal))
+    return {status:409, message:'Terminal incorrecto'};
   const secretKey = hotelConfig.getSecretKey();
 
   if (!secretKey) {
@@ -114,58 +123,66 @@ async function processRedsysNotification({
     try {
       metadata = JSON.parse(decodeURIComponent(rawMeta));
     } catch (_) {
-      try { metadata = JSON.parse(rawMeta); } catch (__) {}
+      try { metadata = JSON.parse(rawMeta); } catch (__) { return {status:400, message:'Metadatos incorrectos'}; }
     }
   }
 
   // 6. Enrutamiento por prefijo, orden y metadatos
-  const route = resolveRoute({
+  let route = resolveRoute({
     orderId,
     referenceId: metadata?.referenceId || metadata?.groupId || '',
     metadata,
     fallbackApp: metadata?.app || null
   });
 
-  const compositeId = buildCompositeOperationId(hotelKey, route.app, orderId);
+  let compositeId = buildCompositeOperationId(hotelKey, route.app, orderId);
   logger.info(`[Redsys Webhook] Enrutando a App: ${route.app}, Módulo: ${route.modulo}, ID Compuesto: ${compositeId}`);
 
   // 7. Idempotencia y almacenamiento en registro central con retrocompatibilidad
-  let txResult = null;
-  if (db) {
-    try {
-      // Búsqueda inteligente: clave compuesta moderna o pedido antiguo (100% retrocompatible)
-      const found = await findTransactionDoc(db, compositeId, orderId);
-      const targetDocId = found?.id || compositeId;
-      const txRef = db.collection('paygold_transactions').doc(targetDocId);
-
-      txResult = await executeIdempotentTransaction(db, txRef, authCode, (existing) => {
-        return applyBankNotificationToDoc(existing || {
-          compositeId,
-          orderId,
-          hotel: hotelKey,
-          app: route.app,
-          modulo: route.modulo,
-          referenceId: route.referenceId,
-          fuc: merchantCode
-        }, {
-          responseCode,
-          authCode,
-          amountPaidEuros: amountEuros,
-          cardBrand: parseCardBrand(brandCode),
-          cardLast4: cardRaw ? cardRaw.slice(-4) : '',
-          cardExpiry: formatExpiryDate(expiryRaw),
-          isAuthorized,
-          rawNotification: params
-        });
-      });
-
-      if (txResult.alreadyHandled) {
-        logger.info(`[Redsys Webhook] Transacción ${targetDocId} ya fue procesada previamente. Retornando 200 OK (Idempotente).`);
-        return { status: 200, message: 'OK', idempotent: true, compositeId: targetDocId };
-      }
-    } catch (dbErr) {
-      logger.warn('[Redsys Webhook] Error registrando en paygold_transactions:', dbErr.message);
+  let txResult;
+  let transactionRef;
+  if (!db?.runTransaction) return { status: 503, message: 'Registro de pedidos no disponible' };
+  try {
+    // Búsqueda inteligente: clave compuesta moderna o pedido antiguo (100% retrocompatible)
+    let found = await findTransactionDoc(db, compositeId, orderId);
+    if (!found) return { status: 409, message: 'Pedido desconocido' };
+    const record = found.doc.data();
+    if (!metadata && record.app && record.referenceId) {
+      route = resolveRoute({orderId, metadata:{app:record.app, referenceId:record.referenceId}});
+      compositeId = buildCompositeOperationId(hotelKey, route.app, orderId);
+      found = await findTransactionDoc(db, compositeId, orderId);
+      if (!found) return {status:409, message:'Pedido desconocido'};
     }
+    if (metadata?.hotel && metadata.hotel !== hotelKey || metadata?.app && metadata.app !== route.app)
+      return {status:409, message:'Origen del pedido incorrecto'};
+    const matches = row => row && row.orderId === orderId && row.hotel === hotelKey &&
+      row.app === route.app && row.referenceId === route.referenceId &&
+      Math.round(Number(row.amountRequested ?? row.amountEuros) * 100) === amountCents;
+    if (!matches(found.doc.data())) return { status: 409, message: 'Pedido no coincide' };
+    const targetDocId = found.id;
+    transactionRef = db.collection('paygold_transactions').doc(targetDocId);
+
+    txResult = await executeIdempotentTransaction(db, transactionRef, authCode, (existing) => {
+      if (!matches(existing)) throw new Error('Pedido modificado');
+      return applyBankNotificationToDoc({ ...existing, fuc:merchantCode, hotelName:hotelConfig.name, bankDescription:bankEval.description, modulo: route.modulo, targetProject: route.targetProject }, {
+        responseCode,
+        authCode,
+        amountPaidEuros: amountEuros,
+        cardBrand: parseCardBrand(brandCode),
+        cardLast4: cardRaw ? cardRaw.slice(-4) : '',
+        cardExpiry: formatExpiryDate(expiryRaw),
+        isAuthorized,
+        rawNotification: null
+      });
+    });
+
+    if (txResult.alreadyHandled) {
+      logger.info(`[Redsys Webhook] Transacción ${targetDocId} ya fue procesada previamente. Retornando 200 OK (Idempotente).`);
+      return { status: 200, message: 'OK', idempotent: true, compositeId: targetDocId };
+    }
+  } catch (dbErr) {
+    logger.warn('[Redsys Webhook] Error registrando en paygold_transactions:', dbErr.message);
+    return { status: 503, message: 'No se ha registrado la notificación' };
   }
 
   // 8. Despacho o Aplicación Local en el Proyecto Firebase correspondiente
@@ -191,11 +208,13 @@ async function processRedsysNotification({
 
   if (dispatcher && typeof dispatcher === 'function') {
     try {
-      await dispatcher({
+      const delivery = await dispatcher({
         route,
         payload: payloadForApp,
         localProjectId
       });
+      if (delivery?.success === false) throw new Error('Entrega pendiente');
+      await transactionRef.set({deliveryStatus:'delivered'}, {merge:true});
     } catch (dispErr) {
       logger.error(`[Redsys Webhook] Fallo en el despachador para ${route.targetProject}:`, dispErr);
     }

@@ -24,6 +24,8 @@ const redsysSecretCumbria = defineSecret("REDSYS_SECRET_KEY_CUMBRIA");
 const interServiceSecret = defineSecret("INTER_SERVICE_AUTH_SECRET");
 
 // Carga de módulos del core de integración centralizada
+const { resolvePayGoldAmount, matchesHotel } = require("./paygold-amount");
+const { authorizeRequest, permitsPayment } = require("./authorize-request");
 const redsys = require("./redsys");
 const { processRedsysNotification } = require("./redsys-core/core/webhook-handler");
 const { createUniqueAtomicRedsysOrder } = require("./redsys-core/core/order-id-generator");
@@ -38,7 +40,8 @@ const createPayGold = onRequest(
     {
         region: "us-central1",
         cors: true,
-        invoker: "public"
+        invoker: "public",
+        secrets: [redsysSecretCumbria]
     },
     async (req, res) => {
         res.set("Access-Control-Allow-Origin", "*");
@@ -58,10 +61,8 @@ const createPayGold = onRequest(
             const {
                 app = "grupos",
                 hotel = "cumbria",
-                amountEuros,
                 groupId,
                 referenceId,
-                orderId: requestedOrderId,
                 installmentIndex = 1,
                 concept,
                 customerEmail,
@@ -72,31 +73,29 @@ const createPayGold = onRequest(
                 depositLabel
             } = req.body || {};
 
-            if (!amountEuros || parseFloat(amountEuros) <= 0) {
-                return res.status(400).json({ error: "El importe en euros es obligatorio y debe ser mayor a 0." });
-            }
-
-            const finalRefId = String(referenceId || groupId || "").trim();
-
-            // Generación atómica del número de pedido Redsys garantizando unicidad por cobro
-            let finalOrderId = requestedOrderId;
-            if (!finalOrderId) {
-                const uniqueOrder = await createUniqueAtomicRedsysOrder({
-                    db,
-                    hotel: hotel || "cumbria",
-                    app,
-                    modulo: app,
-                    referenceId: finalRefId,
-                    installmentIndex: parseInt(installmentIndex, 10) || 1,
-                    amountEuros: parseFloat(amountEuros),
-                    concept: concept || "",
-                    customerEmail,
-                    customerMobile
-                });
-                finalOrderId = uniqueOrder.orderId;
-            }
-
-            const notificationUrl = "https://redsyswebhook-nls6pa6unq-uc.a.run.app";
+            const finalRefId = String(referenceId || groupId || '').trim();
+            const access = await authorizeRequest(req.get('Authorization'), admin.auth(), db);
+            if (access.status !== 200) return res.sendStatus(access.status);
+            if (!permitsPayment(access.member, hotel, app)) return res.sendStatus(403);
+            if (!Number.isSafeInteger(Number(installmentIndex)) || Number(installmentIndex) < 1)
+                return res.sendStatus(400);
+            if (!finalRefId || finalRefId.includes('/') || finalRefId.length > 150) return res.sendStatus(400);
+            const amountEuros = await resolvePayGoldAmount(db, app, hotel, finalRefId, req.body?.amountEuros);
+            if (!amountEuros) return res.status(409).json({error:'El importe no coincide con un cobro pendiente autorizado.'});
+            if (!process.env['REDSYS_SECRET_KEY_' + hotel.toUpperCase()]) return res.sendStatus(503);
+            const {orderId: finalOrderId} = await createUniqueAtomicRedsysOrder({
+                db,
+                hotel,
+                app,
+                modulo: app,
+                referenceId: finalRefId,
+                installmentIndex: parseInt(installmentIndex, 10) || 1,
+                amountEuros,
+                concept: concept || "",
+                customerEmail: customerEmail || "",
+                customerMobile: customerMobile || ""
+            });
+            const notificationUrl = require("./redsys-core/core/hotels-config").HOTELS[hotel].webhookUrl;
 
             logger.info(`[PayGold Hub] Generando enlace para App: ${app}, Hotel: ${hotel}, Pedido: ${finalOrderId}, Importe: ${amountEuros}€, Ref: ${finalRefId || 'N/A'}`);
 
@@ -132,6 +131,7 @@ const createPayGold = onRequest(
                     if (!groupSnapshot.empty) {
                         const batch = db.batch();
                         groupSnapshot.forEach((doc) => {
+                            if (!matchesHotel(doc.data().Hotel_Asignado, hotel)) return;
                             const ref = db.collection("groups").doc(doc.id);
                             batch.update(ref, {
                                 Enlace_TPV: result.paymentUrl,
@@ -160,10 +160,7 @@ const createPayGold = onRequest(
                 groupId: finalRefId,
                 hotel,
                 amountRequested: parseFloat(amountEuros),
-                amountPaid: 0,
                 paymentUrl: result.paymentUrl,
-                bankStatus: "PENDIENTE",
-                deliveryStatus: "pending_dispatch",
                 concept: concept || "",
                 depositLabel: depositLabel || "",
                 customerEmail: customerEmail || "",
@@ -198,10 +195,10 @@ const createPayGold = onRequest(
             });
 
         } catch (error) {
-            logger.error("[PayGold Hub] Error crítico generando enlace:", error);
+            logger.error("[PayGold Hub] Error generando enlace", {code: error.code || "internal"});
             return res.status(500).json({
                 success: false,
-                error: error.message || "Error interno generando enlace PayGold."
+                error: "Error interno generando enlace PayGold."
             });
         }
     }
@@ -222,17 +219,8 @@ const redsysWebhook = onRequest(
         try {
             logger.info("[Redsys Webhook] Notificación HTTP POST recibida de Redsys");
 
-            const secretVal = (typeof redsysSecretCumbria?.value === 'function')
-                ? (redsysSecretCumbria.value() || "T4o7OH9D6UTSo9B9xr2iRaP6I+7s4U8D")
-                : (process.env.REDSYS_SECRET_KEY_CUMBRIA || "T4o7OH9D6UTSo9B9xr2iRaP6I+7s4U8D");
-
-            process.env.REDSYS_SECRET_KEY_CUMBRIA = secretVal;
-
-            const interVal = (typeof interServiceSecret?.value === 'function')
-                ? (interServiceSecret.value() || "InterServiceSecretKeyGuadianaCumbria2026")
-                : (process.env.INTER_SERVICE_AUTH_SECRET || "InterServiceSecretKeyGuadianaCumbria2026");
-
-            process.env.INTER_SERVICE_AUTH_SECRET = interVal;
+            if (!process.env.REDSYS_SECRET_KEY_CUMBRIA || !process.env.INTER_SERVICE_AUTH_SECRET)
+                return res.status(503).send('Servicio sin configurar');
 
             const result = await processRedsysNotification({
                 body: req.body,
@@ -271,9 +259,7 @@ const internalPaymentDispatch = onRequest(
         secrets: [interServiceSecret]
     },
     async (req, res) => {
-        const secretVal = (typeof interServiceSecret?.value === 'function')
-            ? (interServiceSecret.value() || "InterServiceSecretKeyGuadianaCumbria2026")
-            : (process.env.INTER_SERVICE_AUTH_SECRET || "InterServiceSecretKeyGuadianaCumbria2026");
+        const secretVal = process.env.INTER_SERVICE_AUTH_SECRET;
 
         const handler = createInternalReceiver({
             db,

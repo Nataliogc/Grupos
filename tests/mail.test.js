@@ -41,6 +41,8 @@ test('ingestion, deduplication, reply retention and assignment authorization', a
   assert.equal(records.get(key).status, 'Nueva');
   assert.equal((await mail.ingestMessage(base)).duplicate, true);
   assert.equal(records.get(key).version, 1);
+  for (const uid of ['alice','bob','admin','other'])
+    records.set('access_members/'+uid, {active:true,role:uid === 'admin' ? 'admin' : 'commercial'});
   records.set('mailMembers/alice', { active: true, role: 'commercial', name: 'Alice', mailboxes: [base.mailbox] });
   records.set('mailMembers/bob', { active: true, role: 'commercial', name: 'Bob', mailboxes: [base.mailbox] });
   records.set('mailMembers/admin', { active: true, role: 'admin', name: 'Admin', mailboxes: [base.mailbox] });
@@ -60,6 +62,8 @@ test('ingestion, deduplication, reply retention and assignment authorization', a
   records.set('mailMembers/other', { active: true, role: 'commercial', mailboxes: ['grupos@encumbria.es'] });
   await assert.rejects(mail.mailUpdate(request('other', 5, 'status', 'Ganada')), { code: 'permission-denied' });
   await assert.rejects(mail.mailUpdate(request('admin', 5, 'assign', 'other')), { code: 'invalid-argument' });
+  records.get('access_members/alice').active = false;
+  await assert.rejects(mail.mailUpdate(request('alice',5,'note','Sin permiso')), {code:'permission-denied'});
   assert.equal(records.get(key).version, 5);
   assert.equal([...records.keys()].filter(k => k.includes('/events/')).length, 3);
 });

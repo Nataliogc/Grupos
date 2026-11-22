@@ -25,6 +25,7 @@ function setup({ fail = false, valid = true } = {}) {
         } }) }) },
         console: { error() {} }
     });
+    context.window = { NexusSelectedGroupStorage: context.localStorage };
     vm.runInContext(source, context);
     return { context, alerts, payload: () => payload, saved: () => JSON.parse(saved) };
 }

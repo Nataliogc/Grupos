@@ -1,122 +1,99 @@
 /**
  * ═══════════════════════════════════════════════════════════
- * NEXUS GROUPS — Integración con Gemini AI
+ * NEXUS GROUPS — Integración Segura con Gemini AI (Cloud Functions)
  * ═══════════════════════════════════════════════════════════
- * Función centralizada para llamadas a la API de Gemini.
- * Sustituye las 4+ copias duplicadas en los HTML.
- *
- * Dependencias: Firebase debe estar inicializado antes.
- * Uso: <script src="js/gemini.js"></script>
- *      await window.callGemini("tu prompt aquí");
- * ═══════════════════════════════════════════════════════════
+ * Todas las llamadas a Gemini se enrutan exclusivamente a través de la
+ * Cloud Function autenticada `analizarGruposIA` (Secret Manager: GEMINI_KEY).
+ * Nunca lee ni almacena claves API en el navegador ni en Firestore.
  */
 
-(function () {
+(function (root) {
     "use strict";
 
-    /**
-     * Llama a la API de Gemini con un prompt personalizado.
-     * Intenta primero obtener la API key y modelo de Firestore (settings/main),
-     * y usa la API key de Firebase como fallback.
-     *
-     * @param {string} customPrompt - El texto del prompt
-     * @returns {Promise<string>} - La respuesta generada por Gemini
-     */
-    async function callGemini(customPrompt) {
-        var apiKey = window.firebaseConfig ? window.firebaseConfig.apiKey : null;
-        var model = "gemini-1.5-flash";
+    var AI_ENDPOINT = "https://us-central1-gest-grupos-hotel.cloudfunctions.net/analizarGruposIA";
+    var ALLOWED_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
 
-        // Intentar obtener configuración dinámica de Firestore
-        try {
-            var db = firebase.firestore();
-            var settingsDoc = await db.collection("settings").doc("main").get();
-            if (settingsDoc.exists) {
-                var s = settingsDoc.data().system || {};
-                if (s.geminiApiKey) apiKey = s.geminiApiKey;
-                if (s.geminiModel) model = s.geminiModel;
-            }
-        } catch (e) {
-            console.warn("[Gemini] No se pudo cargar config de Firestore, usando fallback.");
-        }
-
-        if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
+    async function callGemini(customPrompt, options) {
+        if (typeof customPrompt !== "string" || !customPrompt.trim()) {
             return {
                 ok: false,
-                error: "⚠️ ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.",
-                status: 401,
-                code: "GEMINI_MISSING_API_KEY"
+                error: "Prompt vacío o inválido.",
+                status: 400,
+                code: "GEMINI_INVALID_PROMPT"
             };
         }
 
-        var url =
-            "https://generativelanguage.googleapis.com/v1/models/" +
-            model +
-            ":generateContent?key=" +
-            apiKey;
+        var user = root.firebase && typeof root.firebase.auth === "function"
+            ? root.firebase.auth().currentUser
+            : null;
+        if (!user || typeof user.getIdToken !== "function") {
+            return {
+                ok: false,
+                error: "Inicia sesión en Firebase Authentication para utilizar la IA.",
+                status: 401,
+                code: "GEMINI_UNAUTHENTICATED"
+            };
+        }
+
+        var model = "gemini-1.5-flash";
+        if (options && typeof options.model === "string" && ALLOWED_MODELS.indexOf(options.model) !== -1) {
+            model = options.model;
+        } else if (root.db && typeof root.db.collection === "function") {
+            try {
+                var settingsDoc = await root.db.collection("settings").doc("main").get();
+                if (settingsDoc.exists) {
+                    var s = settingsDoc.data().system || {};
+                    if (typeof s.geminiModel === "string" && ALLOWED_MODELS.indexOf(s.geminiModel) !== -1) {
+                        model = s.geminiModel;
+                    }
+                }
+            } catch (_) {
+                // Continuar con el modelo por defecto si no se puede leer la preferencia
+            }
+        }
 
         try {
-            var response = await fetch(url, {
+            var idToken = await user.getIdToken();
+            var endpoint = (options && options.endpoint) || root.NEXUS_GEMINI_ENDPOINT || AI_ENDPOINT;
+            var response = await fetch(endpoint, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + idToken
+                },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: customPrompt }] }],
-                }),
+                    prompt: customPrompt,
+                    model: model
+                })
             });
 
-            const rawBody = await response.text();
-            const contentType = response.headers.get("content-type") || "";
+            var rawBody = await response.text();
+            var payload = null;
+            try {
+                payload = rawBody ? JSON.parse(rawBody) : null;
+            } catch (_) {
+                payload = null;
+            }
 
             if (!response.ok) {
-                console.error("Error HTTP de Gemini:", {
-                    status: response.status,
-                    statusText: response.statusText,
-                    contentType,
-                    body: rawBody
-                });
-
-                let msg = "";
-                try {
-                    var errorObj = JSON.parse(rawBody);
-                    msg = (errorObj.error && errorObj.error.message) || "";
-                } catch(e) {}
-
-                if (msg.includes("blocked") || msg.includes("PERMISSION_DENIED")) {
-                    return { ok: false, error: "🚫 ACCESO DENEGADO: Tu API Key está bloqueada o no tiene los permisos necesarios (Generative Language API) en Google AI Studio.", status: response.status, code: "GEMINI_PERMISSION_DENIED" };
+                var serverMsg = (payload && (payload.error || payload.message)) || "";
+                if (response.status === 401 || response.status === 403) {
+                    return {
+                        ok: false,
+                        error: serverMsg || "Acceso denegado al servicio de IA. Verifica tu sesión y permisos.",
+                        status: response.status,
+                        code: "GEMINI_UNAUTHORIZED"
+                    };
                 }
-                if (msg.includes("leaked")) {
-                    return { ok: false, error: "⚠️ Tu API Key ha sido desactivada por seguridad (leaked). Por favor, introduce una nueva en el panel de Configuración.", status: response.status, code: "GEMINI_KEY_LEAKED" };
-                }
-                
                 return {
                     ok: false,
-                    error: msg ? ("Error en servidor IA: " + msg) : `Error del servidor (${response.status}).`,
+                    error: serverMsg || ("Error del servidor de IA (" + response.status + ")."),
                     status: response.status,
                     code: "GEMINI_HTTP_ERROR"
                 };
             }
 
-            let payload;
-            try {
-                payload = rawBody ? JSON.parse(rawBody) : null;
-            } catch (error) {
-                console.error("Gemini devolvió una respuesta no JSON:", {
-                    status: response.status,
-                    contentType,
-                    body: rawBody
-                });
-                return {
-                    ok: false,
-                    error: "El servicio de IA devolvió una respuesta con formato incorrecto.",
-                    status: response.status,
-                    code: "GEMINI_INVALID_RESPONSE"
-                };
-            }
-
-            var text = "";
-            try {
-                text = payload.candidates[0].content.parts[0].text;
-            } catch (e) {}
-
+            var text = (payload && (payload.text || payload.informe)) || "";
             if (!text || typeof text !== "string") {
                 return {
                     ok: false,
@@ -132,17 +109,18 @@
                 status: response.status
             };
         } catch (err) {
-            console.error("Fallo de red al consultar Gemini:", err);
+            console.error("[Gemini] Fallo de red al consultar Cloud Function:", err);
             return {
                 ok: false,
-                error: "No se ha podido conectar con el servicio de IA.",
+                error: "No se ha podido conectar con el servicio de IA en el servidor.",
                 status: 0,
                 code: "GEMINI_NETWORK_ERROR"
             };
         }
     }
 
-    // Exportar al scope global
-    window.callGemini = callGemini;
-
-})();
+    root.callGemini = callGemini;
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = { callGemini: callGemini, AI_ENDPOINT: AI_ENDPOINT, ALLOWED_MODELS: ALLOWED_MODELS };
+    }
+})(typeof window !== "undefined" ? window : globalThis);

@@ -9752,7 +9752,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       // --- Persistencia FIREBASE ---
 
       useEffect(() => {
-        const unsubscribe = window.nexusListen(db.collection("groups"),
+        const subscribeGroups = typeof window.nexusListenGroups === "function"
+          ? (next, err) => window.nexusListenGroups(db, next, err)
+          : (next, err) => window.nexusListen(db.collection("groups"), next, err);
+        const unsubscribe = subscribeGroups(
           (snapshot) => {
             const docsMap = new Map();
             snapshot.forEach((doc) => {
@@ -16034,7 +16037,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
           // log
 
-          const snapshot = await db.collection("groups").get();
+          const groupsQuery = typeof window.getNexusGroupsQuery === "function"
+            ? window.getNexusGroupsQuery(db)
+            : db.collection("groups");
+          const snapshot = await groupsQuery.get();
 
           if (snapshot.empty) {
 

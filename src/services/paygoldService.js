@@ -10,6 +10,13 @@
 
 (function (root) {
     "use strict";
+    async function authenticatedFetch(url, options) {
+        const user = root.firebase?.auth().currentUser;
+        if (!user) throw new Error("Inicia sesión para generar un enlace de pago.");
+        options.headers.Authorization = "Bearer " + await user.getIdToken();
+        return fetch(url, options);
+    }
+
 
     const CLOUD_FUNCTION_URL = "https://createpaygold-nls6pa6unq-uc.a.run.app";
 
@@ -223,7 +230,7 @@
                 depositLabel: cleanDepositLabel
             };
 
-            const response = await fetch(CLOUD_FUNCTION_URL, {
+            const response = await authenticatedFetch(CLOUD_FUNCTION_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

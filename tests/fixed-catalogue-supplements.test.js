@@ -14,6 +14,6 @@ function verify(pvp,discount,expected) {
 test('matches all sixteen values in the supplied 68 EUR / 15% table',()=>verify(68,15,{
  HA:[57.8,57.8,75.7,92.6], HD:[65.8,73.8,99.7,116.6], MP:[84.8,111.8,156.7,192.6], PC:[103.8,149.8,213.7,249.6]
 }));
-test('also matches the earlier 231 EUR / 5% table when prices rise above the catalogue',()=>verify(231,5,{
- HA:[219.45,219.45,318.18,415.9], HD:[227.45,235.45,342.18,439.9], MP:[246.45,273.45,399.18,515.9], PC:[265.45,311.45,456.18,572.9]
+test('applies five-cent rounding to the earlier 231 EUR / 5% table when prices rise above the catalogue',()=>verify(231,5,{
+ HA:[219.45,219.45,318.2,415.9], HD:[227.45,235.45,342.2,439.9], MP:[246.45,273.45,399.2,515.9], PC:[265.45,311.45,456.2,572.9]
 }));

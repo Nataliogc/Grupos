@@ -6,14 +6,17 @@ const cors = require("cors")({ origin: true });
 
 // Definimos la API Key como SECRET (forma moderna)
 const geminiKey = defineSecret("GEMINI_KEY");
+const admin = require('firebase-admin');
+const { authorizeRequest } = require('./authorize-request');
 const mail = require('./mail');
 const redsysFunctions = require('./redsys-functions');
 
 exports.mailInbox = mail.mailInbox;
 exports.mailDetail = mail.mailDetail;
 exports.mailUpdate = mail.mailUpdate;
-// exports.syncGroupMail requiere el secret MAIL_IMAP_CONFIG en GCP.
-if (process.env.MAIL_IMAP_CONFIG) {
+// Cargar syncGroupMail solo cuando la sincronización IMAP esté explícitamente habilitada,
+// evitando registrar defineSecret('MAIL_IMAP_CONFIG') en despliegues selectivos sin IMAP.
+if (String(process.env.MAIL_IMAP_ENABLED || '').toLowerCase() === 'true') {
   exports.syncGroupMail = require('./mail-imap').syncGroupMail;
 }
 
@@ -33,7 +36,7 @@ exports.analizarGruposIA = onRequest(
     // Manejo manual de CORS por si acaso (para mayor compatibilidad con file://)
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
       res.status(204).send("");
@@ -45,6 +48,8 @@ exports.analizarGruposIA = onRequest(
     }
 
     try {
+      const access = await authorizeRequest(req.get('Authorization'), admin.auth(), admin.firestore());
+      if (access.status !== 200) return res.sendStatus(access.status);
       const GEMINI_API_KEY = geminiKey.value();
 
       if (!GEMINI_API_KEY) {
@@ -54,16 +59,21 @@ exports.analizarGruposIA = onRequest(
         });
       }
 
-      const { datos, prompt: customPrompt } = req.body;
+      const { datos, prompt: customPrompt, model: requestedModel } = req.body || {};
+      const allowedModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      const selectedModel = allowedModels.includes(requestedModel) ? requestedModel : "gemini-1.5-flash";
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: selectedModel,
       });
 
       let finalPrompt = "";
 
-      if (customPrompt) {
+      if (typeof customPrompt === "string" && customPrompt.trim()) {
+        if (customPrompt.length > 100000) {
+          return res.status(400).json({ error: "El prompt supera el límite permitido." });
+        }
         finalPrompt = customPrompt;
       } else if (datos && Array.isArray(datos)) {
         finalPrompt = `
@@ -89,6 +99,8 @@ Genera un informe estratégico en Markdown con:
       const text = response.text();
 
       return res.status(200).json({
+        ok: true,
+        text: text,
         informe: text,
         timestamp: new Date().toISOString(),
       });
@@ -102,3 +114,12 @@ Genera un informe estratégico en Markdown con:
     }
   }
 );
+
+/* NEXUS GROUPS - ADMINISTRACION SEGURA DE USUARIOS */
+const nexusUsers = require('./nexus-users');
+
+exports.nexusListUsers = nexusUsers.nexusListUsers;
+exports.nexusCreateUser = nexusUsers.nexusCreateUser;
+exports.nexusLinkUser = nexusUsers.nexusLinkUser;
+exports.nexusUpdateUser = nexusUsers.nexusUpdateUser;
+exports.nexusResetUser = nexusUsers.nexusResetUser;

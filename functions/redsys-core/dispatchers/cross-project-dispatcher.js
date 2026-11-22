@@ -23,9 +23,9 @@ const INTERNAL_SERVICE_ENDPOINTS = {
  * Obtiene el secreto compartido para autenticación inter-servicios
  */
 function getInterServiceSecret() {
-  return process.env.INTER_SERVICE_AUTH_SECRET ||
-    process.env.REDSYS_SECRET_KEY_CUMBRIA ||
-    'InterServiceSecretKeyGuadianaCumbria2026';
+  const secret = process.env.INTER_SERVICE_AUTH_SECRET;
+  if (!secret) throw new Error('Falta configurar la autenticación interna.');
+  return secret;
 }
 
 /**

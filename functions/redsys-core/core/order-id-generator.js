@@ -137,15 +137,14 @@ async function createUniqueAtomicRedsysOrder({
   let finalCompositeId = '';
 
   await db.runTransaction(async (transaction) => {
+    finalOrderId = '';
+    finalCompositeId = '';
     let nextSeq = 1001;
-    let counterSnap = null;
-    try {
-      counterSnap = await transaction.get(counterRef);
-      if (counterSnap && counterSnap.exists) {
-        const cur = counterSnap.data()?.current || 1000;
-        nextSeq = (cur >= 9999) ? 1001 : cur + 1;
-      }
-    } catch (_) {}
+    const counterSnap = await transaction.get(counterRef);
+    if (counterSnap.exists) {
+      const current = counterSnap.data().current || 1000;
+      nextSeq = current >= 9999 ? 1001 : current + 1;
+    }
 
     // Bucle anti-colisión transaccional (soporta desbordamiento/wrap-around de secuencia)
     let candidateOrderId = '';
@@ -186,6 +185,11 @@ async function createUniqueAtomicRedsysOrder({
 
     // Registro atómico de correspondencia en 'paygold_orders'
     const orderRef = db.collection('paygold_orders').doc(finalOrderId);
+    transaction.create(db.collection('paygold_transactions').doc(finalCompositeId), {
+      compositeId: finalCompositeId, orderId: finalOrderId, app: appKey, hotel: hotelKey,
+      modulo, referenceId: refId, amountRequested: amountEuros, amountPaid: 0,
+      bankStatus: 'PENDIENTE', deliveryStatus: 'awaiting_bank'
+    });
     transaction.set(orderRef, {
       orderId: finalOrderId,
       compositeId: finalCompositeId,

@@ -2023,7 +2023,10 @@
 
       // Cargar datos y manejar parámetros de URL
       useEffect(() => {
-        const unsubscribe = window.nexusListen(db.collection("groups"), (snapshot) => {
+        const subscribeGroups = typeof window.nexusListenGroups === "function"
+          ? (next, err) => window.nexusListenGroups(db, next, err)
+          : (next, err) => window.nexusListen(db.collection("groups"), next, err);
+        const unsubscribe = subscribeGroups((snapshot) => {
             const docs = snapshot.docs.map(doc => ({
               uid: doc.id,
               ...doc.data()

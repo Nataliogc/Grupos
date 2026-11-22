@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Usuarios y accesos — Nexus Groups</title>
+<style>
+:root{font:15px system-ui,Arial;color:#172c30;background:#f6f8f9}*{box-sizing:border-box}
+body{margin:0}header{background:#102a25;color:white;padding:18px max(20px,5vw);display:flex;gap:20px;align-items:center;justify-content:space-between}
+main{max-width:1080px;margin:28px auto;padding:0 20px}h1{margin:0}p{color:#52636b}
+.card{background:white;border:1px solid #dce5e9;border-radius:14px;padding:22px;margin:18px 0;box-shadow:0 3px 14px #142f3511}
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 5px}input,select{width:100%;padding:12px;border:1px solid #aab9c2;border-radius:8px;font:inherit}
+button,.link{font:inherit;cursor:pointer;border-radius:8px;border:1px solid #a7bcc3;padding:10px 14px;background:white;color:#123f38}
+.primary{background:#08765f;color:white;border-color:#08765f}.danger{color:#a32d2d;border-color:#db9a9a}
+button:disabled{opacity:.45;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.actions{display:flex;flex-wrap:wrap;gap:8px}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 7px;border-bottom:1px solid #e3e9eb}th{font-size:12px;color:#52636b}
+.muted{color:#677b82;font-size:13px}.status{font-size:13px;font-weight:700}
+#notice{white-space:pre-wrap;padding:12px;border-radius:9px;background:#e8f4ee;display:none}
+#secret{display:none;padding:15px;background:#fff7d8;border:1px solid #d9aa48;border-radius:9px;overflow-wrap:anywhere}
+@media(max-width:760px){.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto}header{flex-wrap:wrap}}
+</style></head><body>
+<header><div><strong>NEXUS GROUPS</strong><div class="muted" style="color:#d9ece6">Administración segura de usuarios</div></div>
+<a class="link" href="Configuracion.html">Volver a configuración</a></header>
+<main>
+<h1>Usuarios y accesos</h1>
+<p>Las cuentas se administran en Firebase Authentication. Los perfiles y la autorización se guardan por UID; nunca se almacenan contraseñas en Nexus.</p>
+<div id="notice" role="status"></div>
+<section class="card" id="gate"><strong>Verificando identidad y permisos…</strong></section>
+<div id="panel" hidden>
+<section class="card"><h2>Agregar usuario</h2>
+<form id="createForm" class="grid">
+<div><label for="name">Nombre</label><input id="name" required minlength="2" maxlength="100"></div>
+<div><label for="email">Correo electrónico</label><input id="email" type="email" autocomplete="off" required></div>
+<div><label for="role">Perfil</label><select id="role"><option value="commercial">Comercial</option><option value="reception">Recepción</option><option value="direction">Dirección</option><option value="admin">Administrador</option></select></div>
+<div><label for="hotels">Hoteles autorizados</label><select id="hotels"><option value="cumbria,guadiana">Cumbria y Guadiana</option><option value="cumbria">Solo Cumbria</option><option value="guadiana">Solo Guadiana</option></select></div>
+<div><label for="canConvertBudget"><input id="canConvertBudget" type="checkbox" style="width:auto;margin-right:8px">Permitir convertir presupuestos en reserva definitiva</label></div>
+<div><button class="primary" type="submit">Crear cuenta e invitación</button></div>
+</form>
+<p class="muted">Se genera un enlace para que el nuevo empleado establezca su propia contraseña. El administrador debe enviárselo por un canal privado y verificar el destinatario.</p>
+<div id="secret"><strong>Enlace confidencial de acceso</strong><p id="secretEmail"></p><p id="secretUrl"></p>
+<button id="copySecret" type="button">Copiar enlace</button><button id="hideSecret" type="button">Ocultar</button>
+<p class="muted">Este enlace puede permitir establecer una contraseña. No lo publiques ni lo reenvíes a terceros.</p></div>
+</section>
+<section class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Directorio de usuarios</h2><button id="reload">Actualizar lista</button></div>
+<table><thead><tr><th>Empleado</th><th>Correo</th><th>Rol</th><th>Hoteles / Conversión</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table>
+<p class="muted">La revocación desactiva Firebase Authentication, la membresía y los tokens de actualización. Las operaciones de pago requieren controles independientes.</p>
+</section></div>
+</main>
+<script src="js/vendor/firebase-app-compat.js"></script>
+<script src="js/vendor/firebase-auth-9.22.1-compat.js"></script>
+<script src="js/vendor/firebase-firestore-compat.js"></script>
+<script src="js/vendor/firebase-functions-9.22.1-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/firebase-init.js"></script>
+  <style>html:not(.nexus-auth-verified) body { visibility: hidden }</style>
+  <script src="js/nexus-auth-guard.staging.js"></script>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id), notice=$('notice'), gate=$('gate'), panel=$('panel');
+const roles={admin:'Administrador',direction:'Dirección',reception:'Recepción',commercial:'Comercial'};
+const validRoles=['admin','direction','reception','commercial'];
+function parseHotels(raw){
+  const list=String(raw||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  return list.length && list.every(h=>h==='cumbria'||h==='guadiana') ? [...new Set(list)] : null;
+}
+function message(text){notice.textContent=text;notice.style.display='block';}
+function error(e){message('Operación no completada: '+(e?.message||'Error de servidor'));}
+function secureLink(email,url){$('secretEmail').textContent='Destinatario: '+email;$('secretUrl').textContent=url;$('secret').style.display='block';$('copySecret').onclick=()=>navigator.clipboard.writeText(url).then(()=>message('Enlace copiado. Envíalo únicamente a su destinatario.')).catch(error);}
+$('hideSecret').onclick=()=>{$('secretUrl').textContent='';$('secret').style.display='none';};
+function button(title,handler,cls){const b=document.createElement('button');b.textContent=title;b.type='button';if(cls)b.className=cls;b.onclick=handler;return b;}
+async function api(name,data){return (await firebase.app().functions('us-central1').httpsCallable(name)(data||{})).data;}
+let ownUid=null,items=[];
+async function refresh(){
+  const r=await api('nexusListUsers');items=r.users||[];$('users').replaceChildren();
+  for(const u of items){
+    const tr=document.createElement('tr');
+    const hotelsLabel = (u.hotels && u.hotels.length) ? u.hotels.join(', ') : 'Sin hoteles';
+    const convLabel = u.canConvertBudget ? 'Sí convierte' : 'No convierte';
+    for(const value of [u.name,u.email,u.linked?(roles[u.role]||u.role):'Sin vincular',u.linked?(hotelsLabel+' · '+convLabel):'—',u.disabled?'Inhabilitado':(u.linked&&u.active?'Activo':'Sin permiso')]){
+      const td=document.createElement('td');td.textContent=value;tr.appendChild(td);
+    }
+    const actions=document.createElement('td'),wrap=document.createElement('div');wrap.className='actions';
+    if(u.testAccount) { actions.textContent='Cuenta demo: no asignar acceso';tr.appendChild(actions);$('users').appendChild(tr);continue; }
+    if(!u.linked && !u.disabled){wrap.append(button('Vincular cuenta',async()=>{
+      const name=prompt('Nombre del empleado',u.name||'');if(name===null)return;
+      const role=prompt('Rol: admin, direction, reception o commercial','commercial');if(role===null)return;
+      if(!validRoles.includes(role)){message('Rol incorrecto');return;}
+      const hotelsRaw=prompt('Hoteles autorizados (cumbria, guadiana)','cumbria, guadiana');if(hotelsRaw===null)return;
+      const hotels=parseHotels(hotelsRaw);if(!hotels){message('Hoteles incorrectos');return;}
+      const canConvertBudget=confirm('¿Permitir convertir presupuestos en reserva definitiva?');
+      if(!confirm('¿Vincular '+u.email+' como '+role+'?'))return;
+      try{await api('nexusLinkUser',{email:u.email,name,role,hotels,canConvertBudget});await refresh();message('Cuenta existente vinculada sin duplicarla.');}catch(e){error(e)}
+    },'primary')}
+    if(u.linked)wrap.append(button('Editar',async()=>{
+      const name=prompt('Nombre del empleado',u.name);if(name===null)return;
+      const role=prompt('Rol: admin, direction, reception o commercial',u.role);if(role===null)return;
+      if(!validRoles.includes(role)){message('Rol incorrecto');return;}
+      const hotelsRaw=prompt('Hoteles autorizados (cumbria, guadiana)',(u.hotels&&u.hotels.length?u.hotels:['cumbria','guadiana']).join(', '));
+      if(hotelsRaw===null)return;
+      const hotels=parseHotels(hotelsRaw);if(!hotels){message('Hoteles incorrectos');return;}
+      const canConvertBudget=confirm('¿Permitir convertir presupuestos en reserva definitiva?\n(Aceptar = Sí, Cancelar = No)');
+      const scopes=prompt('Permisos PayGold separados por comas. Indica hotel/aplicación, por ejemplo cumbria/grupos. Hoteles: cumbria, guadiana. Aplicaciones: grupos, mesachef, spa.',(u.paymentScopes||[]).join(', '));
+      if(scopes===null)return;
+      const paymentScopes=scopes.split(',').map(s=>s.trim()).filter(Boolean);
+      try{await api('nexusUpdateUser',{uid:u.uid,name,role,hotels,canConvertBudget,paymentScopes});await refresh();message('Perfil actualizado');}catch(e){error(e)}
+    }));
+    if(u.linked&&u.uid!==ownUid)wrap.append(button(u.active?'Revocar':'Reactivar',async()=>{
+      if(!confirm('¿Confirmas el cambio de acceso de '+u.email+'?'))return;
+      try{await api('nexusUpdateUser',{uid:u.uid,active:!u.active});await refresh();message('Acceso actualizado');}catch(e){error(e)}
+    },u.active?'danger':''));
+    if(u.linked&&u.active)wrap.append(button('Restablecer clave',async()=>{
+      if(!confirm('¿Generar un enlace privado para '+u.email+'?'))return;
+      try{const r=await api('nexusResetUser',{uid:u.uid});secureLink(r.email,r.resetLink);}catch(e){error(e)}
+    }));
+    actions.appendChild(wrap);tr.appendChild(actions);$('users').appendChild(tr);
+  }
+}
+$('createForm').onsubmit=async event=>{
+  event.preventDefault();const submit=event.target.querySelector('button[type=submit]');submit.disabled=true;
+  try{const hotels=$('hotels').value.split(',').filter(Boolean);const result=await api('nexusCreateUser',{name:$('name').value,email:$('email').value,role:$('role').value,hotels,canConvertBudget:$('canConvertBudget').checked});
+    event.target.reset();await refresh();secureLink(result.email,result.setupLink);message('Usuario creado. Entrega el enlace de activación de forma segura.');
+  }catch(e){error(e)}finally{submit.disabled=false}
+};
+$('reload').onclick=()=>refresh().catch(error);
+if(!window.firebase||!firebase.apps.length||typeof firebase.auth!=='function'||typeof firebase.functions!=='function'){
+  gate.textContent='No se han cargado los servicios de Firebase. No se permite ninguna operación.';return;
+}
+firebase.auth().onAuthStateChanged(async user=>{
+  if(!user){location.replace('index.html');return}
+  ownUid=user.uid;
+  try{
+    const doc=await firebase.firestore().collection('access_members').doc(user.uid).get({source:'server'});
+    const m=doc.data();
+    if(!doc.exists||m?.active!==true||m?.role!=='admin'){gate.textContent='Acceso denegado. Se necesita una cuenta administradora autorizada.';return}
+    await refresh();gate.hidden=true;panel.hidden=false;
+  }catch(e){gate.textContent='Acceso no disponible: falta configurar una membresía de administrador. No se ha abierto ningún permiso.';error(e)}
+});
+})();
+</script></body></html>

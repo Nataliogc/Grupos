@@ -46,6 +46,9 @@ async function acquireDocumentLock(db, docRef, workerId, now) {
     if (!snap.exists) return { acquired: false, reason: 'not_found' };
 
     const data = snap.data();
+    if (data.bankStatus !== 'COBRADO' ||
+        ![DELIVERY_STATUS.RETRYING, DELIVERY_STATUS.PENDING_DISPATCH].includes(data.deliveryStatus) ||
+        (data.nextRetryAt && new Date(data.nextRetryAt) > now)) return {acquired:false, reason:'not_due'};
     const lockExp = data.lockExpiresAt ? new Date(data.lockExpiresAt).getTime() : 0;
 
     // Si está bloqueado por otro y aún no ha vencido, saltar
@@ -125,7 +128,7 @@ async function executePendingRetries({
   let snapshot;
   try {
     snapshot = await colRef
-      .where('deliveryStatus', '==', DELIVERY_STATUS.RETRYING)
+      .where('deliveryStatus', 'in', [DELIVERY_STATUS.RETRYING, DELIVERY_STATUS.PENDING_DISPATCH])
       .limit(maxBatchSize)
       .get();
   } catch (err) {
@@ -147,6 +150,7 @@ async function executePendingRetries({
 
   for (const docSnap of snapshot.docs) {
     const tx = docSnap.data();
+    if (tx.bankStatus !== 'COBRADO') continue;
     const docRef = colRef.doc(docSnap.id);
 
     // 1. Comprobar ventana de espera (nextRetryAt <= now)
@@ -189,7 +193,11 @@ async function executePendingRetries({
           modulo: tx.modulo,
           referenceId: tx.referenceId,
           amountEuros: tx.amountPaid || tx.amountRequested,
-          authCode: tx.authCode,
+          hotelName: tx.hotelName || require('./hotels-config').HOTELS[tx.hotel]?.name || '',
+          fuc: tx.fuc || require('./hotels-config').HOTELS[tx.hotel]?.merchantCode || '',
+          cardBrand: tx.cardBrand || '', cardLast4: tx.cardLast4 || '', cardExpiry: tx.cardExpiry || '',
+          bankDescription: tx.bankDescription || 'Autorizado',
+          authCode: tx.authCode || '',
           responseCode: tx.responseCode || '0000',
           isAuthorized: true
         }
@@ -238,7 +246,11 @@ async function executePendingRetries({
             modulo: tx.modulo,
             referenceId: tx.referenceId,
             amountPaid: tx.amountPaid || tx.amountRequested || 0,
-            authCode: tx.authCode,
+            hotelName: tx.hotelName || require('./hotels-config').HOTELS[tx.hotel]?.name || '',
+          fuc: tx.fuc || require('./hotels-config').HOTELS[tx.hotel]?.merchantCode || '',
+          cardBrand: tx.cardBrand || '', cardLast4: tx.cardLast4 || '', cardExpiry: tx.cardExpiry || '',
+          bankDescription: tx.bankDescription || 'Autorizado',
+          authCode: tx.authCode || '',
             bankStatus: tx.bankStatus || 'COBRADO',
             errorReason: dispatchError,
             attempts: updatedTx.attempts,

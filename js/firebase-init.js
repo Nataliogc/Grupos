@@ -14,6 +14,78 @@
 (function () {
     "use strict";
 
+    window.NEXUS_HOTEL_NAMES = {
+        cumbria: ["Cumbria Spa&Hotel", "Cumbria Spa & Hotel", "Cumbria", "Hotel Cumbria"],
+        guadiana: ["Sercotel Guadiana", "Guadiana", "Hotel Guadiana"]
+    };
+
+    window.getNexusAuthorizedHotels = function () {
+        var member = window.nexusVerifiedMember || null;
+        if (!member) {
+            try {
+                var raw = sessionStorage.getItem("nexus_session");
+                if (raw) member = JSON.parse(raw);
+            } catch (_) {}
+        }
+        return (member && Array.isArray(member.hotels)) ? member.hotels : [];
+    };
+
+    window.getNexusAuthorizedHotelNames = function () {
+        var hotels = window.getNexusAuthorizedHotels();
+        var names = [];
+        hotels.forEach(function (h) {
+            var list = window.NEXUS_HOTEL_NAMES[String(h || "").toLowerCase()];
+            if (list) names = names.concat(list);
+        });
+        return names;
+    };
+
+    window.getNexusGroupsQuery = function (dbInstance) {
+        var targetDb = dbInstance || window.db;
+        var col = targetDb.collection("groups");
+        var hotels = window.getNexusAuthorizedHotels();
+        if (hotels.indexOf("cumbria") !== -1 && hotels.indexOf("guadiana") !== -1) {
+            return col;
+        }
+        var names = window.getNexusAuthorizedHotelNames();
+        if (names.length > 0 && typeof col.where === "function") {
+            var q = col.where("Hotel_Asignado", "in", names);
+            q._nexusCacheKey = "groups:" + hotels.slice().sort().join(",");
+            return q;
+        }
+        if (typeof col.where === "function") {
+            var emptyQ = col.where("Hotel_Asignado", "==", "__NO_HOTEL_AUTHORIZED__");
+            emptyQ._nexusCacheKey = "groups:__none__";
+            return emptyQ;
+        }
+        return col;
+    };
+
+    window.nexusListenGroups = function (dbInstance, next, error) {
+        var stopped = false;
+        var unsub = null;
+        function start() {
+            if (stopped) return;
+            var query = window.getNexusGroupsQuery(dbInstance);
+            unsub = (window.nexusListen || function (ref, n, e) { return ref.onSnapshot(n, e); })(query, next, error);
+        }
+        if (window.nexusVerifiedMember && Array.isArray(window.nexusVerifiedMember.hotels)) {
+            start();
+        } else {
+            var onAuth = function () { start(); };
+            window.addEventListener("nexus-auth-verified", onAuth, { once: true });
+            return function () {
+                stopped = true;
+                window.removeEventListener("nexus-auth-verified", onAuth);
+                if (typeof unsub === "function") unsub();
+            };
+        }
+        return function () {
+            stopped = true;
+            if (typeof unsub === "function") unsub();
+        };
+    };
+
     window.nexusListen = window.nexusListen || function (reference, next, error) {
         return reference.onSnapshot(next, error);
     };
@@ -77,7 +149,7 @@
 
     var subscriptions = new Map();
     window.nexusListen = function (reference, next, error) {
-        var key = reference.path;
+        var key = reference._nexusCacheKey || reference.path;
         if (!key) return reference.onSnapshot(next, error);
         var entry = subscriptions.get(key);
         var observer = { next: next, error: error };

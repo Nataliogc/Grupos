@@ -1,3 +1,4 @@
+const { applyOnce } = require('../core/delivery-receipt');
 /**
  * ═════════════════════════════════════════════════════════════════════════════
  * MESACHEF ADAPTER — ACTUALIZACIÓN ATÓMICA DE RESTAURANTE, SALONES Y EVENTOS
@@ -69,87 +70,90 @@ async function applyMesaChefPayment({
     return { success: false, reason: 'Documento no encontrado', targetCollection };
   }
 
-  const docData = doc.data();
-  const totalExigible = parseFloat(docData.total || docData.totalReserva || docData.precioTotal || docData.importe || 0);
-  const fianzaAcordada = parseFloat(docData.fianzaAcordada || docData.senalAcordada || docData.campoPaygoldAmount || docData.fianza || docData.senal || 0);
-  const cobradoPrevio = parseFloat(docData.fianzaPagada || docData.senalPagada || docData.totalPagado || 0);
+  return applyOnce(db, doc.ref, notification, (docData, write) => {
+    if (!require('../../paygold-amount').matchesHotel(docData.hotel ?? docData.Hotel_Asignado, hotel))
+      throw new Error('Hotel incorrecto para la reserva.');
+    const totalExigible = parseFloat(docData.total || docData.totalReserva || docData.precioTotal || docData.importe || 0);
+    const fianzaAcordada = parseFloat(docData.fianzaAcordada || docData.senalAcordada || docData.campoPaygoldAmount || docData.fianza || docData.senal || 0);
+    const cobradoPrevio = parseFloat(docData.fianzaPagada || docData.senalPagada || docData.totalPagado || 0);
 
-  // Calcular el nuevo estado y saldos
-  const outcome = calculatePaymentOutcome({
-    totalExigible,
-    fianzaAcordada,
-    cobradoPrevio,
-    importeNotificado: amountEuros,
-    isAuthorized,
-    paymentType: 'fianza'
-  });
+    // Calcular el nuevo estado y saldos
+    const outcome = calculatePaymentOutcome({
+      totalExigible,
+      fianzaAcordada,
+      cobradoPrevio,
+      importeNotificado: amountEuros,
+      isAuthorized,
+      paymentType: 'fianza'
+    });
 
-  const updatedHistory = appendPaymentHistory(docData.pagos || docData.historialPagos, {
-    fecha: new Date().toISOString(),
-    tipo: outcome.isFullyPaid ? 'liquidacion_total' : 'fianza',
-    metodo: 'TPV Redsys PayGold',
-    hotel: hotelName,
-    fuc,
-    orderId,
-    autorizacion: authCode,
-    importe: amountEuros,
-    tarjeta: `${cardBrand} •••• ${cardLast4} (${cardExpiry})`,
-    saldoRestante: outcome.saldoPendiente
-  });
+    const updatedHistory = appendPaymentHistory(docData.pagos || docData.historialPagos, {
+      fecha: new Date().toISOString(),
+      tipo: outcome.isFullyPaid ? 'liquidacion_total' : 'fianza',
+      metodo: 'TPV Redsys PayGold',
+      hotel: hotelName,
+      fuc,
+      orderId,
+      autorizacion: authCode,
+      importe: amountEuros,
+      tarjeta: `${cardBrand} •••• ${cardLast4} (${cardExpiry})`,
+      saldoRestante: outcome.saldoPendiente
+    });
 
-  const updatePayload = {
-    paygoldStatus: outcome.status,
-    paygoldLastResult: {
-      code: responseCode,
-      description: bankDescription,
-      authCode,
-      amount: amountEuros,
-      order: orderId,
-      hotel,
+    const updatePayload = {
+      paygoldStatus: outcome.status,
+      paygoldLastResult: {
+        code: responseCode,
+        description: bankDescription,
+        authCode,
+        amount: amountEuros,
+        order: orderId,
+        hotel,
+        updatedAt: new Date().toISOString()
+      },
+      pagos: updatedHistory,
+      cardLast4: cardLast4 || docData.cardLast4 || '',
+      cardBrand: cardBrand || docData.cardBrand || '',
+      cardExpiry: cardExpiry || docData.cardExpiry || '',
       updatedAt: new Date().toISOString()
-    },
-    pagos: updatedHistory,
-    cardLast4: cardLast4 || docData.cardLast4 || '',
-    cardBrand: cardBrand || docData.cardBrand || '',
-    cardExpiry: cardExpiry || docData.cardExpiry || '',
-    updatedAt: new Date().toISOString()
-  };
-
-  if (isAuthorized) {
-    updatePayload.paygoldConfirmedAt = new Date().toISOString();
-
-    if (targetCollection === 'reservas_restaurante') {
-      updatePayload.fianzaPagada = outcome.cobradoTotal;
-      // Solo cambiar estado operativo a confirmada si estaba en pendiente
-      if (docData.estado === 'pendiente') {
-        updatePayload.estado = 'confirmada';
-      }
-    } else if (targetCollection === 'reservas_salones') {
-      updatePayload.senalPagada = outcome.cobradoTotal;
-      if (docData.estado === 'presupuesto') {
-        updatePayload.estado = 'confirmada';
-      }
-    } else if (targetCollection === 'participantes_eventos') {
-      updatePayload.pagado = outcome.isFullyPaid;
-      updatePayload.fianzaPagada = outcome.cobradoTotal;
-    }
-  } else {
-    updatePayload.paygoldLastError = {
-      code: responseCode,
-      description: bankDescription,
-      attemptedAt: new Date().toISOString()
     };
-  }
 
-  await doc.ref.update(updatePayload);
-  logger.info(`[MesaChef Adapter] Reserva ${doc.id} en ${targetCollection} actualizada con éxito a estado: ${outcome.status}`);
+    if (isAuthorized) {
+      updatePayload.paygoldConfirmedAt = new Date().toISOString();
 
-  return {
-    success: true,
-    docId: doc.id,
-    targetCollection,
-    outcome
-  };
+      if (targetCollection === 'reservas_restaurante') {
+        updatePayload.fianzaPagada = outcome.cobradoTotal;
+        // Solo cambiar estado operativo a confirmada si estaba en pendiente
+        if (docData.estado === 'pendiente') {
+          updatePayload.estado = 'confirmada';
+        }
+      } else if (targetCollection === 'reservas_salones') {
+        updatePayload.senalPagada = outcome.cobradoTotal;
+        if (docData.estado === 'presupuesto') {
+          updatePayload.estado = 'confirmada';
+        }
+      } else if (targetCollection === 'participantes_eventos') {
+        updatePayload.pagado = outcome.isFullyPaid;
+        updatePayload.fianzaPagada = outcome.cobradoTotal;
+      }
+    } else {
+      updatePayload.paygoldLastError = {
+        code: responseCode,
+        description: bankDescription,
+        attemptedAt: new Date().toISOString()
+      };
+    }
+
+    write(updatePayload);
+    logger.info(`[MesaChef Adapter] Reserva ${doc.id} en ${targetCollection} actualizada con éxito a estado: ${outcome.status}`);
+
+    return {
+      success: true,
+      docId: doc.id,
+      targetCollection,
+      outcome
+    };
+  });
 }
 
 module.exports = {

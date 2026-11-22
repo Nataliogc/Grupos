@@ -17,6 +17,34 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 (function (root) {
   "use strict";
 
+  function authenticatedFetch(_x, _x2) {
+    return _authenticatedFetch.apply(this, arguments);
+  }
+  function _authenticatedFetch() {
+    _authenticatedFetch = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(url, options) {
+      var _root$firebase;
+      var user, _t;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.n) {
+          case 0:
+            user = (_root$firebase = root.firebase) === null || _root$firebase === void 0 ? void 0 : _root$firebase.auth().currentUser;
+            if (user) {
+              _context2.n = 1;
+              break;
+            }
+            throw new Error("Inicia sesión para generar un enlace de pago.");
+          case 1:
+            _context2.n = 2;
+            return user.getIdToken();
+          case 2:
+            _t = _context2.v;
+            options.headers.Authorization = "Bearer " + _t;
+            return _context2.a(2, fetch(url, options));
+        }
+      }, _callee2);
+    }));
+    return _authenticatedFetch.apply(this, arguments);
+  }
   var CLOUD_FUNCTION_URL = "https://createpaygold-nls6pa6unq-uc.a.run.app";
   var PayGoldService = {
     /**
@@ -214,7 +242,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 depositLabel: cleanDepositLabel
               };
               _context.n = 3;
-              return fetch(CLOUD_FUNCTION_URL, {
+              return authenticatedFetch(CLOUD_FUNCTION_URL, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json"
@@ -243,7 +271,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           }
         }, _callee, this);
       }));
-      function generateLink(_x) {
+      function generateLink(_x3) {
         return _generateLink.apply(this, arguments);
       }
       return generateLink;
