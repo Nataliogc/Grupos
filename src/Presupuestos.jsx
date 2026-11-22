@@ -2414,6 +2414,7 @@
 
         // Actualizar también Modo Grid (ratesOnlyGrid) si aplica
         const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
+        const mergedSecGrid = { ...(formData.secondaryRatesOnlyGrid || {}) };
         const refDate = stayDates[0] || formData.Entrada || new Date().toISOString().split('T')[0];
 
         ['HA', 'HD', 'MP', 'PC'].forEach(bCode => {
@@ -2426,6 +2427,20 @@
               }
             });
           }
+          if (formData.includeBothHotels) {
+            const secHotel = getAlternateHotel(hotel);
+            const secRoomTypes = getRoomTypesForHotel(secHotel);
+            const secLive = getCapaSuiteHotelDayPrice(secHotel, refDate).price;
+            const secComp = getCapaSuiteTariffComparison(secHotel, refDate, bCode, discount, secLive > 0 ? secLive : undefined);
+            if (secComp && secComp.recommendedPricesByRoom) {
+              mergedSecGrid[bCode] = { ...(mergedSecGrid[bCode] || {}) };
+              secRoomTypes.forEach(rt => {
+                if (secComp.recommendedPricesByRoom[rt] !== undefined && secComp.recommendedPricesByRoom[rt] !== null) {
+                  mergedSecGrid[bCode][rt] = secComp.recommendedPricesByRoom[rt];
+                }
+              });
+            }
+          }
         });
 
         setFormData(prev => ({
@@ -2433,12 +2448,13 @@
           capaSuiteDiscountPercent: discount,
           customDailyPvp: newCustomPvp,
           ratesOnlyGrid: mergedGrid,
+          secondaryRatesOnlyGrid: formData.includeBothHotels ? mergedSecGrid : prev.secondaryRatesOnlyGrid,
           dailyConfig: newDailyConfig,
           averageStayCondition: null,
           gridTariffMode: 'recommended'
         }));
 
-        alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
+        alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + (formData.includeBothHotels ? (hotel + ' y ' + getAlternateHotel(hotel)) : hotel) + '.');
       };
 
       /**
@@ -2491,6 +2507,9 @@
 
         if (formData.isRatesOnly) {
           const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
+          const mergedSecGrid = { ...(formData.secondaryRatesOnlyGrid || {}) };
+          const secHotel = getAlternateHotel(hotel);
+          const secRoomTypes = getRoomTypesForHotel(secHotel);
           ['HA', 'HD', 'MP', 'PC'].forEach(board => {
             const comparisons = stayDates.map(date => getCapaSuiteTariffComparison(hotel, date, board, discount, getEffectivePvp(date)));
             mergedGrid[board] = { ...(mergedGrid[board] || {}) };
@@ -2500,8 +2519,18 @@
                 mergedGrid[board][room] = roundRate(prices.reduce((sum, price) => sum + Number(price), 0) / stayDates.length);
               }
             });
+            if (formData.includeBothHotels) {
+              const secComps = stayDates.map(date => getCapaSuiteTariffComparison(secHotel, date, board, discount));
+              mergedSecGrid[board] = { ...(mergedSecGrid[board] || {}) };
+              secRoomTypes.forEach(room => {
+                const secPrices = secComps.map(comp => comp?.recommendedPricesByRoom?.[room]);
+                if (secPrices.every(price => price != null && price !== '' && Number.isFinite(Number(price)))) {
+                  mergedSecGrid[board][room] = roundRate(secPrices.reduce((sum, price) => sum + Number(price), 0) / stayDates.length);
+                }
+              });
+            }
           });
-          setFormData(prev => ({ ...prev, ratesOnlyGrid: mergedGrid, capaSuiteDiscountPercent: discount,
+          setFormData(prev => ({ ...prev, ratesOnlyGrid: mergedGrid, secondaryRatesOnlyGrid: formData.includeBothHotels ? mergedSecGrid : prev.secondaryRatesOnlyGrid, capaSuiteDiscountPercent: discount,
             customDailyPvp: newCustomPvp,
             averageStayCondition: { dates: [...stayDates], nights: stayDates.length } }));
           return;
@@ -4982,10 +5011,29 @@ ${emailContent}`;
                                           <td className="p-3 pl-5 font-bold text-slate-700">{board}</td>
                                           {hRooms.map(room => {
                                             const val = hGrid?.[bKey]?.[room] ?? '';
-                                            const offVal = offGrid?.[bKey]?.[room];
+                                            const offBoard = offGrid?.[bKey] || (bKey === "HA" ? offGrid?.["SA"] : (bKey === "HD" ? offGrid?.["AD"] : {})) || {};
+                                            const offVal = offBoard[room] !== undefined && offBoard[room] !== null
+                                              ? Number(offBoard[room])
+                                              : (offBoard[room.toLowerCase()] !== undefined ? Number(offBoard[room.toLowerCase()]) : null);
+                                            const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+                                            let segComp = null;
+                                            if (segNights.length > 0) {
+                                              const comps = segNights.map(d => getCapaSuiteTariffComparison(hName, d, bKey, discount));
+                                              const validHotelPrices = comps.map(c => c?.hotelDayPrice).filter(p => p != null && Number.isFinite(Number(p)) && Number(p) > 0);
+                                              const recPrices = comps.map(c => c?.recommendedPricesByRoom?.[room]).filter(p => p != null && Number.isFinite(Number(p)));
+                                              segComp = {
+                                                hotelDayPrice: validHotelPrices.length > 0 ? Math.round((validHotelPrices.reduce((s, p) => s + Number(p), 0) / validHotelPrices.length) * 100) / 100 : 0,
+                                                recommended: recPrices.length === segNights.length ? roundRate(recPrices.reduce((s, p) => s + Number(p), 0) / recPrices.length) : null,
+                                                source: `Media de ${segNights.length} ${segNights.length === 1 ? 'noche' : 'noches'}`
+                                              };
+                                            }
+                                            const formatMoney = v => Number(v).toLocaleString('es-ES', { maximumFractionDigits: 2 });
+                                            const minAllowed = offVal !== null ? Math.round(offVal * 0.85 * 100) / 100 : null;
+                                            const numP = parseFloat(val);
+                                            const isBelowMin = offVal !== null && !isNaN(numP) && numP > 0 && minAllowed !== null && numP < minAllowed;
                                             return (
                                               <td key={room} className="p-3">
-                                                <div className="relative max-w-[140px] mx-auto">
+                                                <div className="relative max-w-[165px] mx-auto">
                                                   <div className="relative">
                                                     <input
                                                       type="number"
@@ -4994,13 +5042,30 @@ ${emailContent}`;
                                                       value={val}
                                                       onChange={e => updateSegCell(slot, bKey, room, e.target.value)}
                                                       placeholder="0.00"
-                                                      className="w-full pl-2 pr-6 py-1.5 rounded-lg text-xs font-black text-center outline-none bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800"
+                                                      className={`w-full pl-2 pr-6 py-1.5 rounded-lg text-xs font-black text-center outline-none ${
+                                                        isBelowMin
+                                                          ? "bg-rose-50 border-2 border-rose-400 text-rose-800"
+                                                          : "bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800"
+                                                      }`}
                                                     />
                                                     <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
                                                   </div>
-                                                  {offVal != null && (
-                                                    <div className="mt-1 text-[10px] font-bold text-slate-400 text-center">
-                                                      T/grupo: {Number(offVal).toLocaleString('es-ES', { maximumFractionDigits: 2 })}€
+                                                  <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold">
+                                                    <span className="text-slate-500">
+                                                      T/grupo: {offVal !== null ? `${formatMoney(offVal)}€` : '—'}
+                                                    </span>
+                                                    <span className="text-indigo-600">
+                                                      - PVP hab. medio (HA): {segComp && segComp.hotelDayPrice > 0 ? `${formatMoney(segComp.hotelDayPrice)}€` : '—'}
+                                                    </span>
+                                                    {isBelowMin && (
+                                                      <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5">
+                                                        <i className="fas fa-exclamation-triangle text-[8px]"></i> Mín {minAllowed}€
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  {segComp && segComp.recommended != null && (
+                                                    <div className="mt-0.5 text-[9px] text-slate-400 px-0.5 leading-snug">
+                                                      {segComp.source} · Sugerida {bKey}: <span className="font-bold text-slate-600">{formatMoney(segComp.recommended)}€</span> · dto. {discount}% solo sobre habitación, suplementos completos
                                                     </div>
                                                   )}
                                                 </div>
@@ -5223,11 +5288,39 @@ ${emailContent}`;
                                     <td className="p-4 pl-8 font-bold text-slate-700">{board}</td>
                                     {secRooms.map(room => {
                                       const secVal = formData.secondaryRatesOnlyGrid?.[boardKey]?.[room] || '';
-                                      const secOffBoard = secOffGrid[boardKey] || {};
-                                      const secOffPrice = secOffBoard[room] !== undefined && secOffBoard[room] !== null ? Number(secOffBoard[room]) : null;
+                                      const secOffBoard = secOffGrid[boardKey] || (boardKey === "HA" ? secOffGrid["SA"] : (boardKey === "HD" ? secOffGrid["AD"] : {})) || {};
+                                      const secOffPrice = secOffBoard[room] !== undefined && secOffBoard[room] !== null
+                                        ? Number(secOffBoard[room])
+                                        : (secOffBoard[room.toLowerCase()] !== undefined ? Number(secOffBoard[room.toLowerCase()]) : null);
+                                      const secRefDates = getCurrentStayDates(formData);
+                                      const secRefDate = secRefDates[0] || (formData.Entrada ? toInputDate(formData.Entrada) : null);
+                                      const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+                                      let secComparison = secRefDate ? getCapaSuiteTariffComparison(secHotel, secRefDate, boardKey, discount) : null;
+                                      const isStayAverage = !!formData.averageStayCondition || secRefDates.length > 1;
+                                      if (isStayAverage && secComparison && secRefDates.length > 0) {
+                                        const datesForAvg = formData.averageStayCondition?.dates?.length ? formData.averageStayCondition.dates : secRefDates;
+                                        const comps = datesForAvg.map(d => getCapaSuiteTariffComparison(secHotel, d, boardKey, discount));
+                                        const validHotelPrices = comps.map(c => c?.hotelDayPrice).filter(p => p != null && Number.isFinite(Number(p)) && Number(p) > 0);
+                                        const prices = comps.map(c => c?.recommendedPricesByRoom?.[room]);
+                                        secComparison = {
+                                          ...secComparison,
+                                          hotelDayPrice: validHotelPrices.length > 0 ? Math.round((validHotelPrices.reduce((s, p) => s + Number(p), 0) / validHotelPrices.length) * 100) / 100 : secComparison.hotelDayPrice,
+                                          recommendedPricesByRoom: {
+                                            ...secComparison.recommendedPricesByRoom,
+                                            [room]: prices.every(p => p != null) ? roundRate(prices.reduce((s, p) => s + Number(p), 0) / prices.length) : null
+                                          },
+                                          hotelPriceInfo: { source: `Media de ${datesForAvg.length} noches`, isEstimated: comps.some(c => c?.hotelPriceInfo?.isEstimated) }
+                                        };
+                                      }
+                                      const secPriceInfo = secComparison?.hotelPriceInfo;
+                                      const secRecommended = secComparison?.recommendedPricesByRoom?.[room];
+                                      const formatMoney = value => Number(value).toLocaleString('es-ES', { maximumFractionDigits: 2 });
+                                      const minAllowedPrice = secOffPrice !== null ? Math.round(secOffPrice * 0.85 * 100) / 100 : null;
+                                      const numP = parseFloat(secVal);
+                                      const isBelowMin = secOffPrice !== null && !isNaN(numP) && numP > 0 && minAllowedPrice !== null && numP < minAllowedPrice;
                                       return (
                                         <td key={room} className="p-4">
-                                          <div className="relative max-w-[150px] mx-auto">
+                                          <div className="relative max-w-[165px] mx-auto">
                                             <div className="relative">
                                               <input
                                                 type="number"
@@ -5240,13 +5333,32 @@ ${emailContent}`;
                                                   setFormData({ ...formData, secondaryRatesOnlyGrid: grid });
                                                 }}
                                                 placeholder="0.00"
-                                                className="w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-slate-700"
+                                                className={`w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all ${
+                                                  isBelowMin
+                                                    ? "bg-rose-50 border-2 border-rose-400 text-rose-800 ring-2 ring-rose-400/20"
+                                                    : "bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-slate-700"
+                                                }`}
                                               />
                                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
                                             </div>
-                                            <div className="mt-1 text-[10px] px-0.5 font-bold text-slate-500 text-center">
-                                              T/grupo: {secOffPrice !== null ? `${Number(secOffPrice).toLocaleString('es-ES', { maximumFractionDigits: 2 })}€` : '—'}
+                                            <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold">
+                                              <span className="text-slate-500" title="Tarifa de catálogo de grupos para esta habitación y régimen">
+                                                T/grupo: {secOffPrice !== null ? `${formatMoney(secOffPrice)}€` : '—'}
+                                              </span>
+                                              <span className="text-indigo-600" title={secPriceInfo ? `${formatDate(secRefDate)} · ${secPriceInfo.source} · Base doble, solo alojamiento` : 'Selecciona una fecha de entrada para consultar el PVP'}>
+                                                - {isStayAverage ? 'PVP hab. medio (HA)' : 'PVP hab. (HA)'}: {secComparison && secComparison.hotelDayPrice > 0 ? `${formatMoney(secComparison.hotelDayPrice)}€` : '—'}
+                                              </span>
+                                              {isBelowMin && (
+                                                <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5" title={`Por debajo del mínimo establecido (${minAllowedPrice} €)`}>
+                                                  <i className="fas fa-exclamation-triangle text-[8px]"></i> Mín {minAllowedPrice}€
+                                                </span>
+                                              )}
                                             </div>
+                                            {secComparison && secRecommended != null && (
+                                              <div className="mt-0.5 text-[9px] text-slate-400 px-0.5 leading-snug">
+                                                {secPriceInfo?.source} · Sugerida {boardKey}: <span className="font-bold text-slate-600">{formatMoney(secRecommended)}€</span> · dto. {discount}% solo sobre habitación, suplementos completos
+                                              </div>
+                                            )}
                                           </div>
                                         </td>
                                       );
@@ -6496,34 +6608,26 @@ ${emailContent}`;
                     </div>
 
                     {g.isMultiSegment && g.segments && g.segments.length > 0 ? (
-                      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8 print:mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100" style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                      <div className="quote-summary grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 print:mb-4 bg-slate-50/60 p-3.5 print:p-2.5 rounded-xl border border-slate-200/70" style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
                         {(() => {
                           const stats = getSegmentStats(g.segments);
                           return (
                             <>
                               <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Cliente / Grupo</span>
+                                <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g["Nombre del Grupo"]}</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Estancias</span>
+                                <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.segments.length} fechas solicitadas</p>
+                              </div>
+                              <div className="space-y-0.5">
                                 <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Total Pax</span>
-                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{stats.totalPax} pax</p>
+                                <p className="text-xs print:text-[10px] font-bold text-slate-800">{stats.totalPax} personas</p>
                               </div>
                               <div className="space-y-0.5">
-                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Hab-Noche</span>
-                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{stats.roomNights} hab-noc</p>
-                              </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Máx Simultáneo</span>
-                                <p className="text-sm print:text-[11px] font-extrabold text-indigo-600">{stats.maxSimultaneous} hab.</p>
-                              </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Entrada Global</span>
-                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{formatDate(stats.globalIn)}</p>
-                              </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Salida Global</span>
-                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{formatDate(stats.globalOut)}</p>
-                              </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Segmentos</span>
-                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{g.segments.length} estancias</p>
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Referencia</span>
+                                <p className="text-xs print:text-[10px] font-bold text-slate-800">#{g.Reserva}</p>
                               </div>
                             </>
                           );
@@ -6580,77 +6684,67 @@ ${emailContent}`;
                     )}
 
                     {g.isMultiSegment && g.segments && g.segments.length > 0 && (
-                      <div className="space-y-4 mb-8">
-                        <h3 className={`text-xs font-black uppercase tracking-widest border-l-4 ${isCumbria ? 'border-blue-900 text-blue-900' : 'border-orange-600 text-orange-800'} pl-3`}>
+                      <div className="space-y-3 mb-6 print:mb-4">
+                        <h3 className={`text-xs print:text-[10px] font-black uppercase tracking-widest border-l-4 ${g.includeBothHotels ? 'border-slate-700 text-slate-700' : (isCumbria ? 'border-blue-900 text-blue-900' : 'border-orange-600 text-orange-800')} pl-3`}>
                           Distribución por Estancias
                         </h3>
-                        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
-                          <table className="w-full text-left border-collapse text-xs print:text-[10px]">
+                        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                          <table className="w-full text-left border-collapse text-xs print:text-[9.5px]">
                             <thead>
-                              <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
-                                <th className="p-3 print:py-1.5 print:px-2 w-12 text-center">ID</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Pax</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Entrada</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Salida</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Noches</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Distribución</th>
-                                {g.segments.some(s => s.notes) && <th className="p-3 print:py-1.5 print:px-2">Notas</th>}
+                              <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-200">
+                                <th className="py-2.5 px-3 print:py-1.5 print:px-2 w-10 text-center">#</th>
+                                <th className="py-2.5 px-3 print:py-1.5 print:px-2">Pax</th>
+                                <th className="py-2.5 px-3 print:py-1.5 print:px-2">Entrada</th>
+                                <th className="py-2.5 px-3 print:py-1.5 print:px-2">Salida</th>
+                                <th className="py-2.5 px-3 print:py-1.5 print:px-2 text-center">Noches</th>
+                                <th className="py-2.5 px-3 print:py-1.5 print:px-2">Distribución</th>
+                                {g.segments.some(s => s.notes) && <th className="py-2.5 px-3 print:py-1.5 print:px-2">Notas</th>}
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                               {g.segments.map((seg) => {
                                 const nightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
                                 return (
                                   <tr key={seg.id} className="hover:bg-slate-50/50">
-                                    <td className="p-3 print:py-1.5 print:px-2 text-center font-black text-slate-500">{seg.id}</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 font-bold text-slate-700">{seg.pax} pax</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{formatDate(seg.in)}</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{formatDate(seg.out)}</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700">{nightsCount}</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 font-bold text-slate-700">
+                                    <td className="py-2.5 px-3 print:py-1.5 print:px-2 text-center font-black text-slate-500">{seg.id}</td>
+                                    <td className="py-2.5 px-3 print:py-1.5 print:px-2 font-bold text-slate-700">{seg.pax} pax</td>
+                                    <td className="py-2.5 px-3 print:py-1.5 print:px-2 text-slate-700 font-medium">{formatDate(seg.in)}</td>
+                                    <td className="py-2.5 px-3 print:py-1.5 print:px-2 text-slate-700 font-medium">{formatDate(seg.out)}</td>
+                                    <td className="py-2.5 px-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700">{nightsCount}</td>
+                                    <td className="py-2.5 px-3 print:py-1.5 print:px-2 text-slate-700">
                                       {(() => {
                                         const allocs = seg.roomAllocations && seg.roomAllocations.length > 0
                                           ? seg.roomAllocations
                                           : [{ pax: seg.pax || 1, rooms: seg.rooms || seg.pax || 1, roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL' }];
                                         return allocs.map((a, i) => (
                                           <div key={i} className="mb-0.5 last:mb-0 font-medium">
-                                            {a.rooms} {Number(a.rooms) === 1 ? 'habitación' : 'habitaciones'} {getRoomDisplayName(a.roomType).toLowerCase()} <span className="text-[9px] text-slate-400 font-normal">({a.pax} pax)</span>
+                                            {a.rooms} {Number(a.rooms) === 1 ? 'hab.' : 'habs.'} {getRoomDisplayName(a.roomType).toLowerCase()}
                                           </div>
                                         ));
                                       })()}
                                     </td>
-                                    {g.segments.some(s => s.notes) && <td className="p-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]">{seg.notes || ''}</td>}
+                                    {g.segments.some(s => s.notes) && <td className="py-2.5 px-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]">{seg.notes || ''}</td>}
                                   </tr>
                                 );
                               })}
                             </tbody>
                           </table>
-                          <div className={`px-4 py-2 border-t border-slate-100 flex flex-wrap gap-4 text-[9px] print:text-[8px] font-black uppercase tracking-widest ${isCumbria ? 'bg-blue-50/20 text-blue-900/80' : 'bg-orange-50/20 text-orange-800/80'}`}>
-                            {(() => {
-                              const stats = getSegmentStats(g.segments);
-                              return (
-                                <>
-                                  <span>Total Pax: {stats.totalPax} pax</span>
-                                  <span>•</span>
-                                  <span>Habitaciones-Noche: {stats.roomNights} hab-noc</span>
-                                  <span>•</span>
-                                  <span>Máxima Ocupación Simultánea: {stats.maxSimultaneous} hab.</span>
-                                  <span>•</span>
-                                  <span>Rango global: {stats.nights} noches</span>
-                                </>
-                              );
-                            })()}
-                          </div>
                         </div>
                       </div>
                     )}
 
-                    <div className="quote-economic space-y-8 print:space-y-4">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
+                    <div className="quote-economic space-y-5 print:space-y-3">
+                      <h3 className="text-xs print:text-[10px] font-black text-slate-600 uppercase tracking-widest border-l-4 border-slate-700 pl-3">Itinerario y Condiciones Económicas</h3>
                       {g.averageStayCondition && (
-                        <div className="quote-stay-condition rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
-                          <strong>Oferta válida para una estancia mínima de {g.averageStayCondition.nights} noches.</strong> Tarifa media calculada para la estancia completa en las fechas {g.averageStayCondition.dates.map(formatDate).join(', ')}. Cualquier reducción o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.
-                        </div>
+                        g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 1 ? (
+                          <div className="quote-stay-condition rounded-xl border border-slate-200 bg-slate-50 p-3 print:p-2 text-xs print:text-[9px] text-slate-700 break-inside-avoid">
+                            <strong>Tarifa calculada para las estancias completas indicadas</strong> ({g.segments.map(s => `${formatDate(s.in)}–${formatDate(s.out)}`).join(' y ')}). Cualquier modificación de fechas o reducción de noches requerirá recalcular la tarifa.
+                          </div>
+                        ) : (
+                          <div className="quote-stay-condition rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
+                            <strong>Oferta válida para una estancia mínima de {g.averageStayCondition.nights} noches.</strong> Tarifa media calculada para la estancia completa en las fechas {g.averageStayCondition.dates.map(formatDate).join(', ')}. Cualquier reducción o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.
+                          </div>
+                        )
                       )}
                       {dates.length > 0 || g.isRatesOnly ? (
                         g.isRatesOnly ? (
@@ -6668,12 +6762,12 @@ ${emailContent}`;
                                 ? g.secondaryRatesOnlyGrid
                                 : getOfficialTariffsGrid(secHotel, targetY);
 
-                              const renderRatesTable = (hName, hIsCumbria, hRooms, hGrid) => {
+                              const renderRatesTable = (hName, hIsCumbria, hRooms, hGrid, hideFooter) => {
                                 const visibleRooms = hRooms.filter(r => !(g.hiddenGridCols || []).includes(r));
                                 return (
-                                  <div key={hName} className={`overflow-hidden print:overflow-visible rounded-2xl border ${hIsCumbria ? 'border-blue-900/20' : 'border-orange-600/20'} text-xs print:text-[10px] bg-white shadow-sm break-inside-avoid`}>
+                                  <div key={hName} className="overflow-hidden print:overflow-visible rounded-xl border border-slate-200 text-xs print:text-[9.5px] bg-white break-inside-avoid">
                                     {g.includeBothHotels && (
-                                      <div className={`px-4 py-2.5 print:py-1.5 flex items-center justify-between border-b ${hIsCumbria ? 'bg-blue-50/70 border-blue-100 text-blue-950' : 'bg-amber-50/80 border-orange-100 text-amber-950'}`} style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                      <div className={`px-3.5 py-2 print:py-1.5 flex items-center justify-between border-b ${hIsCumbria ? 'bg-slate-900 text-white border-slate-800' : 'bg-amber-900 text-amber-50 border-amber-800'}`} style={{backgroundColor: hIsCumbria ? '#0f172a' : '#78350f', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
                                         <span className="text-[11px] print:text-[9px] font-black uppercase tracking-widest">
                                           {hIsCumbria ? 'Cumbria Spa & Hotel' : 'Sercotel Guadiana'}
                                         </span>
@@ -6681,10 +6775,10 @@ ${emailContent}`;
                                     )}
                                     <table className="w-full text-left border-collapse">
                                       <thead>
-                                        <tr className={`${hIsCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50'} font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ${hIsCumbria ? 'border-blue-950' : 'border-orange-950'}`} style={{backgroundColor: hIsCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
-                                          <th className="p-4 print:py-2 print:px-3 font-extrabold">Régimen</th>
+                                        <tr className={`${g.includeBothHotels ? 'bg-slate-50 text-slate-600 border-b border-slate-200' : (hIsCumbria ? 'bg-slate-900 text-white border-b border-blue-950' : 'bg-amber-950 text-amber-50 border-b border-orange-950')} font-black text-[10px] print:text-[8px] uppercase tracking-widest`} style={g.includeBothHotels ? {backgroundColor: '#f8fafc', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'} : {backgroundColor: hIsCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                          <th className="py-2.5 px-3 print:py-1.5 print:px-2 font-extrabold">Régimen</th>
                                           {visibleRooms.map(room => (
-                                            <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{getRoomDisplayName(room)}</th>
+                                            <th key={room} className="py-2.5 px-3 print:py-1.5 print:px-2 text-center font-extrabold">{getRoomDisplayName(room)}</th>
                                           ))}
                                         </tr>
                                       </thead>
@@ -6694,14 +6788,14 @@ ${emailContent}`;
                                           const hasPrices = visibleRooms.some(room => hGrid?.[boardKey]?.[room]);
                                           if (!hasPrices) return null;
                                           return (
-                                            <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/50 transition-colors`}>
-                                              <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{getBoardDisplayName(board)}</td>
+                                            <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                                              <td className="py-2.5 px-3 print:py-1.5 print:px-2 align-middle font-bold text-slate-800 uppercase tracking-tight">{getBoardDisplayName(board)}</td>
                                               {visibleRooms.map(room => {
                                                 const price = hGrid?.[boardKey]?.[room];
                                                 return (
-                                                  <td key={room} className="p-4 print:py-2.5 print:px-3 text-center align-middle">
+                                                  <td key={room} className="py-2.5 px-3 print:py-1.5 print:px-2 text-center align-middle">
                                                     {price ? (
-                                                      <span className={`inline-block px-3 py-1 rounded-lg ${hIsCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50'} text-xs print:text-[10px] font-extrabold tabular-nums`} style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                                      <span className="inline-block px-2.5 py-0.5 rounded-md bg-slate-100/80 text-slate-900 text-xs print:text-[9.5px] font-extrabold tabular-nums" style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
                                                         {formatNum(price)} €
                                                       </span>
                                                     ) : (
@@ -6715,16 +6809,18 @@ ${emailContent}`;
                                         })}
                                       </tbody>
                                     </table>
-                                    <div className={`${hIsCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50'} px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black`} style={{backgroundColor: hIsCumbria ? '#f8fafc' : '#fffbeb', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
-                                      Tarifas informativas por habitación y noche (IVA incluido)
-                                    </div>
+                                    {!hideFooter && (
+                                      <div className="bg-slate-50 text-slate-500 border-t border-slate-100 px-4 py-2 print:py-1.5 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-bold" style={{backgroundColor: '#f8fafc', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                        Tarifas por habitación y noche · IVA incluido
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               };
 
                               if (g.splitRatesBySegment && g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 1) {
                                 return (
-                                  <div className="space-y-6 print:space-y-4">
+                                  <div className="space-y-4 print:space-y-3">
                                     {g.segments.map((seg, segIdx) => {
                                       const segKey = String(seg.id || segIdx + 1);
                                       const segEntry = (g.segmentRatesOnlyGrids || {})[segKey] || {};
@@ -6732,30 +6828,44 @@ ${emailContent}`;
                                       const segSecondary = (segEntry.secondary && Object.keys(segEntry.secondary).length > 0) ? segEntry.secondary : secondaryGrid;
                                       const segNightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
                                       return (
-                                        <div key={segKey} className="space-y-3 print:space-y-2 break-inside-avoid">
-                                          <div className="flex items-center justify-between px-4 py-2 print:py-1.5 rounded-xl bg-slate-800 text-white" style={{backgroundColor: '#1e293b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
-                                            <span className="text-[11px] print:text-[9px] font-black uppercase tracking-widest">
-                                              Estancia {segIdx + 1}: {formatDate(seg.in)} - {formatDate(seg.out)}
+                                        <div key={segKey} className="space-y-2 print:space-y-1.5 break-inside-avoid">
+                                          <div className="flex items-center justify-between px-3.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-800" style={{backgroundColor: '#f1f5f9', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                            <span className="text-[11px] print:text-[9px] font-black uppercase tracking-wider">
+                                              Estancia {segIdx + 1}: {formatDate(seg.in)} – {formatDate(seg.out)}
                                             </span>
-                                            <span className="text-[10px] print:text-[8px] font-bold text-slate-300 uppercase tracking-wider">
+                                            <span className="text-[10px] print:text-[8px] font-bold text-slate-500 uppercase tracking-wider">
                                               {segNightsCount} {segNightsCount === 1 ? 'noche' : 'noches'} · {seg.pax || 0} pax
                                             </span>
                                           </div>
-                                          {renderRatesTable(hotelName + '-' + segKey, isCumbria, currentRooms, segPrimary)}
-                                          {g.includeBothHotels && renderRatesTable(secHotel + '-' + segKey, secIsCumbria, secRoomsList, segSecondary)}
+                                          <div className={g.includeBothHotels ? "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3 print:gap-2.5" : ""}>
+                                            {renderRatesTable(hotelName + '-' + segKey, isCumbria, currentRooms, segPrimary, true)}
+                                            {g.includeBothHotels && renderRatesTable(secHotel + '-' + segKey, secIsCumbria, secRoomsList, segSecondary, true)}
+                                          </div>
                                         </div>
                                       );
                                     })}
+                                    <p className="text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-bold text-slate-400 pt-1">
+                                      Tarifas por habitación y noche · IVA incluido
+                                    </p>
                                   </div>
                                 );
                               }
 
-                              return (
-                                <>
-                                  {renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid)}
-                                  {g.includeBothHotels && renderRatesTable(secHotel, secIsCumbria, secRoomsList, secondaryGrid)}
-                                </>
-                              );
+                              if (g.includeBothHotels) {
+                                return (
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 print:gap-3">
+                                      {renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid, true)}
+                                      {renderRatesTable(secHotel, secIsCumbria, secRoomsList, secondaryGrid, true)}
+                                    </div>
+                                    <p className="text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-bold text-slate-400 pt-1">
+                                      Tarifas por habitación y noche · IVA incluido
+                                    </p>
+                                  </div>
+                                );
+                              }
+
+                              return renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid, false);
                             })()}
                           </div>
                         ) : (

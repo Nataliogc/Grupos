@@ -2804,6 +2804,7 @@ function App() {
 
     // Actualizar también Modo Grid (ratesOnlyGrid) si aplica
     var mergedGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
+    var mergedSecGrid = _objectSpread({}, formData.secondaryRatesOnlyGrid || {});
     var refDate = stayDates[0] || formData.Entrada || new Date().toISOString().split('T')[0];
     ['HA', 'HD', 'MP', 'PC'].forEach(function (bCode) {
       var bComp = getCapaSuiteTariffComparison(hotel, refDate, bCode, discount, getEffectivePvp(refDate));
@@ -2815,18 +2816,33 @@ function App() {
           }
         });
       }
+      if (formData.includeBothHotels) {
+        var secHotel = getAlternateHotel(hotel);
+        var secRoomTypes = getRoomTypesForHotel(secHotel);
+        var secLive = getCapaSuiteHotelDayPrice(secHotel, refDate).price;
+        var secComp = getCapaSuiteTariffComparison(secHotel, refDate, bCode, discount, secLive > 0 ? secLive : undefined);
+        if (secComp && secComp.recommendedPricesByRoom) {
+          mergedSecGrid[bCode] = _objectSpread({}, mergedSecGrid[bCode] || {});
+          secRoomTypes.forEach(function (rt) {
+            if (secComp.recommendedPricesByRoom[rt] !== undefined && secComp.recommendedPricesByRoom[rt] !== null) {
+              mergedSecGrid[bCode][rt] = secComp.recommendedPricesByRoom[rt];
+            }
+          });
+        }
+      }
     });
     setFormData(function (prev) {
       return _objectSpread(_objectSpread({}, prev), {}, {
         capaSuiteDiscountPercent: discount,
         customDailyPvp: newCustomPvp,
         ratesOnlyGrid: mergedGrid,
+        secondaryRatesOnlyGrid: formData.includeBothHotels ? mergedSecGrid : prev.secondaryRatesOnlyGrid,
         dailyConfig: newDailyConfig,
         averageStayCondition: null,
         gridTariffMode: 'recommended'
       });
     });
-    alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
+    alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + (formData.includeBothHotels ? hotel + ' y ' + getAlternateHotel(hotel) : hotel) + '.');
   };
 
   /**
@@ -2879,6 +2895,9 @@ function App() {
     });
     if (formData.isRatesOnly) {
       var _mergedGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
+      var mergedSecGrid = _objectSpread({}, formData.secondaryRatesOnlyGrid || {});
+      var secHotel = getAlternateHotel(hotel);
+      var secRoomTypes = getRoomTypesForHotel(secHotel);
       ['HA', 'HD', 'MP', 'PC'].forEach(function (board) {
         var comparisons = stayDates.map(function (date) {
           return getCapaSuiteTariffComparison(hotel, date, board, discount, getEffectivePvp(date));
@@ -2897,10 +2916,30 @@ function App() {
             }, 0) / stayDates.length);
           }
         });
+        if (formData.includeBothHotels) {
+          var secComps = stayDates.map(function (date) {
+            return getCapaSuiteTariffComparison(secHotel, date, board, discount);
+          });
+          mergedSecGrid[board] = _objectSpread({}, mergedSecGrid[board] || {});
+          secRoomTypes.forEach(function (room) {
+            var secPrices = secComps.map(function (comp) {
+              var _comp$recommendedPric5;
+              return comp === null || comp === void 0 || (_comp$recommendedPric5 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric5 === void 0 ? void 0 : _comp$recommendedPric5[room];
+            });
+            if (secPrices.every(function (price) {
+              return price != null && price !== '' && Number.isFinite(Number(price));
+            })) {
+              mergedSecGrid[board][room] = roundRate(secPrices.reduce(function (sum, price) {
+                return sum + Number(price);
+              }, 0) / stayDates.length);
+            }
+          });
+        }
       });
       setFormData(function (prev) {
         return _objectSpread(_objectSpread({}, prev), {}, {
           ratesOnlyGrid: _mergedGrid,
+          secondaryRatesOnlyGrid: formData.includeBothHotels ? mergedSecGrid : prev.secondaryRatesOnlyGrid,
           capaSuiteDiscountPercent: discount,
           customDailyPvp: newCustomPvp,
           averageStayCondition: {
@@ -2918,10 +2957,10 @@ function App() {
       var sumPrice = 0;
       var countDays = 0;
       stayDates.forEach(function (date) {
-        var _formData$dailyConfig, _comp$recommendedPric5;
+        var _formData$dailyConfig, _comp$recommendedPric6;
         var currentBoard = ((_formData$dailyConfig = formData.dailyConfig) === null || _formData$dailyConfig === void 0 || (_formData$dailyConfig = _formData$dailyConfig[date]) === null || _formData$dailyConfig === void 0 ? void 0 : _formData$dailyConfig.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
         var comp = getCapaSuiteTariffComparison(hotel, date, currentBoard, discount, getEffectivePvp(date));
-        var p = (_comp$recommendedPric5 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric5 === void 0 ? void 0 : _comp$recommendedPric5[rt];
+        var p = (_comp$recommendedPric6 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric6 === void 0 ? void 0 : _comp$recommendedPric6[rt];
         if (p !== undefined && p !== null && p !== '') {
           sumPrice += Number(p);
           countDays++;
@@ -5897,14 +5936,50 @@ function App() {
           }, /*#__PURE__*/React.createElement("td", {
             className: "p-3 pl-5 font-bold text-slate-700"
           }, board), hRooms.map(function (room) {
-            var _hGrid$bKey$room, _hGrid$bKey, _offGrid$bKey;
+            var _hGrid$bKey$room, _hGrid$bKey;
             var val = (_hGrid$bKey$room = hGrid === null || hGrid === void 0 || (_hGrid$bKey = hGrid[bKey]) === null || _hGrid$bKey === void 0 ? void 0 : _hGrid$bKey[room]) !== null && _hGrid$bKey$room !== void 0 ? _hGrid$bKey$room : '';
-            var offVal = offGrid === null || offGrid === void 0 || (_offGrid$bKey = offGrid[bKey]) === null || _offGrid$bKey === void 0 ? void 0 : _offGrid$bKey[room];
+            var offBoard = (offGrid === null || offGrid === void 0 ? void 0 : offGrid[bKey]) || (bKey === "HA" ? offGrid === null || offGrid === void 0 ? void 0 : offGrid["SA"] : bKey === "HD" ? offGrid === null || offGrid === void 0 ? void 0 : offGrid["AD"] : {}) || {};
+            var offVal = offBoard[room] !== undefined && offBoard[room] !== null ? Number(offBoard[room]) : offBoard[room.toLowerCase()] !== undefined ? Number(offBoard[room.toLowerCase()]) : null;
+            var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+            var segComp = null;
+            if (segNights.length > 0) {
+              var comps = segNights.map(function (d) {
+                return getCapaSuiteTariffComparison(hName, d, bKey, discount);
+              });
+              var validHotelPrices = comps.map(function (c) {
+                return c === null || c === void 0 ? void 0 : c.hotelDayPrice;
+              }).filter(function (p) {
+                return p != null && Number.isFinite(Number(p)) && Number(p) > 0;
+              });
+              var recPrices = comps.map(function (c) {
+                var _c$recommendedPricesB2;
+                return c === null || c === void 0 || (_c$recommendedPricesB2 = c.recommendedPricesByRoom) === null || _c$recommendedPricesB2 === void 0 ? void 0 : _c$recommendedPricesB2[room];
+              }).filter(function (p) {
+                return p != null && Number.isFinite(Number(p));
+              });
+              segComp = {
+                hotelDayPrice: validHotelPrices.length > 0 ? Math.round(validHotelPrices.reduce(function (s, p) {
+                  return s + Number(p);
+                }, 0) / validHotelPrices.length * 100) / 100 : 0,
+                recommended: recPrices.length === segNights.length ? roundRate(recPrices.reduce(function (s, p) {
+                  return s + Number(p);
+                }, 0) / recPrices.length) : null,
+                source: "Media de ".concat(segNights.length, " ").concat(segNights.length === 1 ? 'noche' : 'noches')
+              };
+            }
+            var formatMoney = function formatMoney(v) {
+              return Number(v).toLocaleString('es-ES', {
+                maximumFractionDigits: 2
+              });
+            };
+            var minAllowed = offVal !== null ? Math.round(offVal * 0.85 * 100) / 100 : null;
+            var numP = parseFloat(val);
+            var isBelowMin = offVal !== null && !isNaN(numP) && numP > 0 && minAllowed !== null && numP < minAllowed;
             return /*#__PURE__*/React.createElement("td", {
               key: room,
               className: "p-3"
             }, /*#__PURE__*/React.createElement("div", {
-              className: "relative max-w-[140px] mx-auto"
+              className: "relative max-w-[165px] mx-auto"
             }, /*#__PURE__*/React.createElement("div", {
               className: "relative"
             }, /*#__PURE__*/React.createElement("input", {
@@ -5916,14 +5991,24 @@ function App() {
                 return updateSegCell(slot, bKey, room, e.target.value);
               },
               placeholder: "0.00",
-              className: "w-full pl-2 pr-6 py-1.5 rounded-lg text-xs font-black text-center outline-none bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800"
+              className: "w-full pl-2 pr-6 py-1.5 rounded-lg text-xs font-black text-center outline-none ".concat(isBelowMin ? "bg-rose-50 border-2 border-rose-400 text-rose-800" : "bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800")
             }), /*#__PURE__*/React.createElement("span", {
               className: "absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold"
-            }, "\u20AC")), offVal != null && /*#__PURE__*/React.createElement("div", {
-              className: "mt-1 text-[10px] font-bold text-slate-400 text-center"
-            }, "T/grupo: ", Number(offVal).toLocaleString('es-ES', {
-              maximumFractionDigits: 2
-            }), "\u20AC")));
+            }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
+              className: "mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold"
+            }, /*#__PURE__*/React.createElement("span", {
+              className: "text-slate-500"
+            }, "T/grupo: ", offVal !== null ? "".concat(formatMoney(offVal), "\u20AC") : '—'), /*#__PURE__*/React.createElement("span", {
+              className: "text-indigo-600"
+            }, "- PVP hab. medio (HA): ", segComp && segComp.hotelDayPrice > 0 ? "".concat(formatMoney(segComp.hotelDayPrice), "\u20AC") : '—'), isBelowMin && /*#__PURE__*/React.createElement("span", {
+              className: "text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5"
+            }, /*#__PURE__*/React.createElement("i", {
+              className: "fas fa-exclamation-triangle text-[8px]"
+            }), " M\xEDn ", minAllowed, "\u20AC")), segComp && segComp.recommended != null && /*#__PURE__*/React.createElement("div", {
+              className: "mt-0.5 text-[9px] text-slate-400 px-0.5 leading-snug"
+            }, segComp.source, " \xB7 Sugerida ", bKey, ": ", /*#__PURE__*/React.createElement("span", {
+              className: "font-bold text-slate-600"
+            }, formatMoney(segComp.recommended), "\u20AC"), " \xB7 dto. ", discount, "% solo sobre habitaci\xF3n, suplementos completos")));
           }));
         })))));
       };
@@ -6022,8 +6107,8 @@ function App() {
               return getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', date, boardKey, discount);
             });
             var prices = comps.map(function (comp) {
-              var _comp$recommendedPric6;
-              return (_comp$recommendedPric6 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric6 === void 0 ? void 0 : _comp$recommendedPric6[room];
+              var _comp$recommendedPric7;
+              return (_comp$recommendedPric7 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric7 === void 0 ? void 0 : _comp$recommendedPric7[room];
             });
             comparison = _objectSpread(_objectSpread({}, comparison), {}, {
               hotelDayPrice: Math.round(comps.reduce(function (sum, comp) {
@@ -6140,15 +6225,63 @@ function App() {
         }, /*#__PURE__*/React.createElement("td", {
           className: "p-4 pl-8 font-bold text-slate-700"
         }, board), secRooms.map(function (room) {
-          var _formData$secondaryRa;
+          var _formData$secondaryRa, _secComparison, _secComparison2;
           var secVal = ((_formData$secondaryRa = formData.secondaryRatesOnlyGrid) === null || _formData$secondaryRa === void 0 || (_formData$secondaryRa = _formData$secondaryRa[boardKey]) === null || _formData$secondaryRa === void 0 ? void 0 : _formData$secondaryRa[room]) || '';
-          var secOffBoard = secOffGrid[boardKey] || {};
-          var secOffPrice = secOffBoard[room] !== undefined && secOffBoard[room] !== null ? Number(secOffBoard[room]) : null;
+          var secOffBoard = secOffGrid[boardKey] || (boardKey === "HA" ? secOffGrid["SA"] : boardKey === "HD" ? secOffGrid["AD"] : {}) || {};
+          var secOffPrice = secOffBoard[room] !== undefined && secOffBoard[room] !== null ? Number(secOffBoard[room]) : secOffBoard[room.toLowerCase()] !== undefined ? Number(secOffBoard[room.toLowerCase()]) : null;
+          var secRefDates = getCurrentStayDates(formData);
+          var secRefDate = secRefDates[0] || (formData.Entrada ? toInputDate(formData.Entrada) : null);
+          var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+          var secComparison = secRefDate ? getCapaSuiteTariffComparison(secHotel, secRefDate, boardKey, discount) : null;
+          var isStayAverage = !!formData.averageStayCondition || secRefDates.length > 1;
+          if (isStayAverage && secComparison && secRefDates.length > 0) {
+            var _formData$averageStay;
+            var datesForAvg = (_formData$averageStay = formData.averageStayCondition) !== null && _formData$averageStay !== void 0 && (_formData$averageStay = _formData$averageStay.dates) !== null && _formData$averageStay !== void 0 && _formData$averageStay.length ? formData.averageStayCondition.dates : secRefDates;
+            var comps = datesForAvg.map(function (d) {
+              return getCapaSuiteTariffComparison(secHotel, d, boardKey, discount);
+            });
+            var validHotelPrices = comps.map(function (c) {
+              return c === null || c === void 0 ? void 0 : c.hotelDayPrice;
+            }).filter(function (p) {
+              return p != null && Number.isFinite(Number(p)) && Number(p) > 0;
+            });
+            var prices = comps.map(function (c) {
+              var _c$recommendedPricesB3;
+              return c === null || c === void 0 || (_c$recommendedPricesB3 = c.recommendedPricesByRoom) === null || _c$recommendedPricesB3 === void 0 ? void 0 : _c$recommendedPricesB3[room];
+            });
+            secComparison = _objectSpread(_objectSpread({}, secComparison), {}, {
+              hotelDayPrice: validHotelPrices.length > 0 ? Math.round(validHotelPrices.reduce(function (s, p) {
+                return s + Number(p);
+              }, 0) / validHotelPrices.length * 100) / 100 : secComparison.hotelDayPrice,
+              recommendedPricesByRoom: _objectSpread(_objectSpread({}, secComparison.recommendedPricesByRoom), {}, _defineProperty({}, room, prices.every(function (p) {
+                return p != null;
+              }) ? roundRate(prices.reduce(function (s, p) {
+                return s + Number(p);
+              }, 0) / prices.length) : null)),
+              hotelPriceInfo: {
+                source: "Media de ".concat(datesForAvg.length, " noches"),
+                isEstimated: comps.some(function (c) {
+                  var _c$hotelPriceInfo;
+                  return c === null || c === void 0 || (_c$hotelPriceInfo = c.hotelPriceInfo) === null || _c$hotelPriceInfo === void 0 ? void 0 : _c$hotelPriceInfo.isEstimated;
+                })
+              }
+            });
+          }
+          var secPriceInfo = (_secComparison = secComparison) === null || _secComparison === void 0 ? void 0 : _secComparison.hotelPriceInfo;
+          var secRecommended = (_secComparison2 = secComparison) === null || _secComparison2 === void 0 || (_secComparison2 = _secComparison2.recommendedPricesByRoom) === null || _secComparison2 === void 0 ? void 0 : _secComparison2[room];
+          var formatMoney = function formatMoney(value) {
+            return Number(value).toLocaleString('es-ES', {
+              maximumFractionDigits: 2
+            });
+          };
+          var minAllowedPrice = secOffPrice !== null ? Math.round(secOffPrice * 0.85 * 100) / 100 : null;
+          var numP = parseFloat(secVal);
+          var isBelowMin = secOffPrice !== null && !isNaN(numP) && numP > 0 && minAllowedPrice !== null && numP < minAllowedPrice;
           return /*#__PURE__*/React.createElement("td", {
             key: room,
             className: "p-4"
           }, /*#__PURE__*/React.createElement("div", {
-            className: "relative max-w-[150px] mx-auto"
+            className: "relative max-w-[165px] mx-auto"
           }, /*#__PURE__*/React.createElement("div", {
             className: "relative"
           }, /*#__PURE__*/React.createElement("input", {
@@ -6164,14 +6297,27 @@ function App() {
               }));
             },
             placeholder: "0.00",
-            className: "w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-slate-700"
+            className: "w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all ".concat(isBelowMin ? "bg-rose-50 border-2 border-rose-400 text-rose-800 ring-2 ring-rose-400/20" : "bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-slate-700")
           }), /*#__PURE__*/React.createElement("span", {
             className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold"
           }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
-            className: "mt-1 text-[10px] px-0.5 font-bold text-slate-500 text-center"
-          }, "T/grupo: ", secOffPrice !== null ? "".concat(Number(secOffPrice).toLocaleString('es-ES', {
-            maximumFractionDigits: 2
-          }), "\u20AC") : '—')));
+            className: "mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold"
+          }, /*#__PURE__*/React.createElement("span", {
+            className: "text-slate-500",
+            title: "Tarifa de cat\xE1logo de grupos para esta habitaci\xF3n y r\xE9gimen"
+          }, "T/grupo: ", secOffPrice !== null ? "".concat(formatMoney(secOffPrice), "\u20AC") : '—'), /*#__PURE__*/React.createElement("span", {
+            className: "text-indigo-600",
+            title: secPriceInfo ? "".concat(formatDate(secRefDate), " \xB7 ").concat(secPriceInfo.source, " \xB7 Base doble, solo alojamiento") : 'Selecciona una fecha de entrada para consultar el PVP'
+          }, "- ", isStayAverage ? 'PVP hab. medio (HA)' : 'PVP hab. (HA)', ": ", secComparison && secComparison.hotelDayPrice > 0 ? "".concat(formatMoney(secComparison.hotelDayPrice), "\u20AC") : '—'), isBelowMin && /*#__PURE__*/React.createElement("span", {
+            className: "text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5",
+            title: "Por debajo del m\xEDnimo establecido (".concat(minAllowedPrice, " \u20AC)")
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fas fa-exclamation-triangle text-[8px]"
+          }), " M\xEDn ", minAllowedPrice, "\u20AC")), secComparison && secRecommended != null && /*#__PURE__*/React.createElement("div", {
+            className: "mt-0.5 text-[9px] text-slate-400 px-0.5 leading-snug"
+          }, secPriceInfo === null || secPriceInfo === void 0 ? void 0 : secPriceInfo.source, " \xB7 Sugerida ", boardKey, ": ", /*#__PURE__*/React.createElement("span", {
+            className: "font-bold text-slate-600"
+          }, formatMoney(secRecommended), "\u20AC"), " \xB7 dto. ", discount, "% solo sobre habitaci\xF3n, suplementos completos")));
         }));
       })))));
     }())), /*#__PURE__*/React.createElement("div", {
@@ -7457,7 +7603,7 @@ function App() {
     }, "Ref: ", g.Reserva, (g.Presupuesto_Origen || g.sourceQuoteId) && String(g.Presupuesto_Origen || g.sourceQuoteId).trim() !== String(g.Reserva).trim() && /*#__PURE__*/React.createElement("span", {
       className: "ml-2 text-indigo-600 font-bold"
     }, "(Pto: ", g.Presupuesto_Origen || g.sourceQuoteId, ")")))), g.isMultiSegment && g.segments && g.segments.length > 0 ? /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-2 md:grid-cols-6 gap-4 mb-8 print:mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100",
+      className: "quote-summary grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 print:mb-4 bg-slate-50/60 p-3.5 print:p-2.5 rounded-xl border border-slate-200/70",
       style: {
         WebkitPrintColorAdjust: 'exact',
         printColorAdjust: 'exact'
@@ -7468,39 +7614,27 @@ function App() {
         className: "space-y-0.5"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Cliente / Grupo"), /*#__PURE__*/React.createElement("p", {
+        className: "text-xs print:text-[10px] font-bold text-slate-800 uppercase"
+      }, g["Nombre del Grupo"])), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Estancias"), /*#__PURE__*/React.createElement("p", {
+        className: "text-xs print:text-[10px] font-bold text-slate-800"
+      }, g.segments.length, " fechas solicitadas")), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
       }, "Total Pax"), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
-      }, stats.totalPax, " pax")), /*#__PURE__*/React.createElement("div", {
+        className: "text-xs print:text-[10px] font-bold text-slate-800"
+      }, stats.totalPax, " personas")), /*#__PURE__*/React.createElement("div", {
         className: "space-y-0.5"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
-      }, "Hab-Noche"), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
-      }, stats.roomNights, " hab-noc")), /*#__PURE__*/React.createElement("div", {
-        className: "space-y-0.5"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
-      }, "M\xE1x Simult\xE1neo"), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm print:text-[11px] font-extrabold text-indigo-600"
-      }, stats.maxSimultaneous, " hab.")), /*#__PURE__*/React.createElement("div", {
-        className: "space-y-0.5"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
-      }, "Entrada Global"), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
-      }, formatDate(stats.globalIn))), /*#__PURE__*/React.createElement("div", {
-        className: "space-y-0.5"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
-      }, "Salida Global"), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
-      }, formatDate(stats.globalOut))), /*#__PURE__*/React.createElement("div", {
-        className: "space-y-0.5"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
-      }, "Segmentos"), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
-      }, g.segments.length, " estancias")));
+      }, "Referencia"), /*#__PURE__*/React.createElement("p", {
+        className: "text-xs print:text-[10px] font-bold text-slate-800"
+      }, "#", g.Reserva)));
     }()) : /*#__PURE__*/React.createElement("div", {
       className: "quote-summary grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6"
     }, /*#__PURE__*/React.createElement("div", {
@@ -7554,50 +7688,50 @@ function App() {
     }, "Empresa / Agencia"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800 uppercase"
     }, g["Empresa/Agencia"]))), g.isMultiSegment && g.segments && g.segments.length > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "space-y-4 mb-8"
+      className: "space-y-3 mb-6 print:mb-4"
     }, /*#__PURE__*/React.createElement("h3", {
-      className: "text-xs font-black uppercase tracking-widest border-l-4 ".concat(isCumbria ? 'border-blue-900 text-blue-900' : 'border-orange-600 text-orange-800', " pl-3")
+      className: "text-xs print:text-[10px] font-black uppercase tracking-widest border-l-4 ".concat(g.includeBothHotels ? 'border-slate-700 text-slate-700' : isCumbria ? 'border-blue-900 text-blue-900' : 'border-orange-600 text-orange-800', " pl-3")
     }, "Distribuci\xF3n por Estancias"), /*#__PURE__*/React.createElement("div", {
-      className: "overflow-hidden rounded-2xl border border-slate-100 bg-white"
+      className: "overflow-hidden rounded-xl border border-slate-200 bg-white"
     }, /*#__PURE__*/React.createElement("table", {
-      className: "w-full text-left border-collapse text-xs print:text-[10px]"
+      className: "w-full text-left border-collapse text-xs print:text-[9.5px]"
     }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-      className: "bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100"
+      className: "bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-200"
     }, /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2 w-12 text-center"
-    }, "ID"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
+      className: "py-2.5 px-3 print:py-1.5 print:px-2 w-10 text-center"
+    }, "#"), /*#__PURE__*/React.createElement("th", {
+      className: "py-2.5 px-3 print:py-1.5 print:px-2"
     }, "Pax"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
+      className: "py-2.5 px-3 print:py-1.5 print:px-2"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
+      className: "py-2.5 px-3 print:py-1.5 print:px-2"
     }, "Salida"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
+      className: "py-2.5 px-3 print:py-1.5 print:px-2 text-center"
     }, "Noches"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
+      className: "py-2.5 px-3 print:py-1.5 print:px-2"
     }, "Distribuci\xF3n"), g.segments.some(function (s) {
       return s.notes;
     }) && /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
+      className: "py-2.5 px-3 print:py-1.5 print:px-2"
     }, "Notas"))), /*#__PURE__*/React.createElement("tbody", {
-      className: "divide-y divide-slate-50"
+      className: "divide-y divide-slate-100"
     }, g.segments.map(function (seg) {
       var nightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
       return /*#__PURE__*/React.createElement("tr", {
         key: seg.id,
         className: "hover:bg-slate-50/50"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 text-center font-black text-slate-500"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 text-center font-black text-slate-500"
       }, seg.id), /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 font-bold text-slate-700"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 font-bold text-slate-700"
       }, seg.pax, " pax"), /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 text-slate-600"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 text-slate-700 font-medium"
       }, formatDate(seg.in)), /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 text-slate-600"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 text-slate-700 font-medium"
       }, formatDate(seg.out)), /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700"
       }, nightsCount), /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 font-bold text-slate-700"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 text-slate-700"
       }, function () {
         var allocs = seg.roomAllocations && seg.roomAllocations.length > 0 ? seg.roomAllocations : [{
           pax: seg.pax || 1,
@@ -7608,27 +7742,24 @@ function App() {
           return /*#__PURE__*/React.createElement("div", {
             key: i,
             className: "mb-0.5 last:mb-0 font-medium"
-          }, a.rooms, " ", Number(a.rooms) === 1 ? 'habitación' : 'habitaciones', " ", getRoomDisplayName(a.roomType).toLowerCase(), " ", /*#__PURE__*/React.createElement("span", {
-            className: "text-[9px] text-slate-400 font-normal"
-          }, "(", a.pax, " pax)"));
+          }, a.rooms, " ", Number(a.rooms) === 1 ? 'hab.' : 'habs.', " ", getRoomDisplayName(a.roomType).toLowerCase());
         });
       }()), g.segments.some(function (s) {
         return s.notes;
       }) && /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]"
+        className: "py-2.5 px-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]"
       }, seg.notes || ''));
-    }))), /*#__PURE__*/React.createElement("div", {
-      className: "px-4 py-2 border-t border-slate-100 flex flex-wrap gap-4 text-[9px] print:text-[8px] font-black uppercase tracking-widest ".concat(isCumbria ? 'bg-blue-50/20 text-blue-900/80' : 'bg-orange-50/20 text-orange-800/80')
-    }, function () {
-      var stats = getSegmentStats(g.segments);
-      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "Total Pax: ", stats.totalPax, " pax"), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "Habitaciones-Noche: ", stats.roomNights, " hab-noc"), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "M\xE1xima Ocupaci\xF3n Simult\xE1nea: ", stats.maxSimultaneous, " hab."), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "Rango global: ", stats.nights, " noches"));
-    }()))), /*#__PURE__*/React.createElement("div", {
-      className: "quote-economic space-y-8 print:space-y-4"
+    }))))), /*#__PURE__*/React.createElement("div", {
+      className: "quote-economic space-y-5 print:space-y-3"
     }, /*#__PURE__*/React.createElement("h3", {
-      className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
-    }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && /*#__PURE__*/React.createElement("div", {
+      className: "text-xs print:text-[10px] font-black text-slate-600 uppercase tracking-widest border-l-4 border-slate-700 pl-3"
+    }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && (g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 1 ? /*#__PURE__*/React.createElement("div", {
+      className: "quote-stay-condition rounded-xl border border-slate-200 bg-slate-50 p-3 print:p-2 text-xs print:text-[9px] text-slate-700 break-inside-avoid"
+    }, /*#__PURE__*/React.createElement("strong", null, "Tarifa calculada para las estancias completas indicadas"), " (", g.segments.map(function (s) {
+      return "".concat(formatDate(s.in), "\u2013").concat(formatDate(s.out));
+    }).join(' y '), "). Cualquier modificaci\xF3n de fechas o reducci\xF3n de noches requerir\xE1 recalcular la tarifa.") : /*#__PURE__*/React.createElement("div", {
       className: "quote-stay-condition rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid"
-    }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", g.averageStayCondition.nights, " noches."), " Tarifa media calculada para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente."), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", g.averageStayCondition.nights, " noches."), " Tarifa media calculada para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.")), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
       className: "space-y-6 print:space-y-4"
     }, function () {
       var parsedY = g.Entrada ? new Date(toInputDate(g.Entrada)).getFullYear() : 2027;
@@ -7638,16 +7769,18 @@ function App() {
       var secIsCumbria = secHotel.toLowerCase().includes("cumbria");
       var secRoomsList = ROOM_TYPES[secHotel] || ROOM_TYPES["Cumbria Spa&Hotel"] || [];
       var secondaryGrid = g.secondaryRatesOnlyGrid && Object.keys(g.secondaryRatesOnlyGrid).length > 0 ? g.secondaryRatesOnlyGrid : getOfficialTariffsGrid(secHotel, targetY);
-      var renderRatesTable = function renderRatesTable(hName, hIsCumbria, hRooms, hGrid) {
+      var renderRatesTable = function renderRatesTable(hName, hIsCumbria, hRooms, hGrid, hideFooter) {
         var visibleRooms = hRooms.filter(function (r) {
           return !(g.hiddenGridCols || []).includes(r);
         });
         return /*#__PURE__*/React.createElement("div", {
           key: hName,
-          className: "overflow-hidden print:overflow-visible rounded-2xl border ".concat(hIsCumbria ? 'border-blue-900/20' : 'border-orange-600/20', " text-xs print:text-[10px] bg-white shadow-sm break-inside-avoid")
+          className: "overflow-hidden print:overflow-visible rounded-xl border border-slate-200 text-xs print:text-[9.5px] bg-white break-inside-avoid"
         }, g.includeBothHotels && /*#__PURE__*/React.createElement("div", {
-          className: "px-4 py-2.5 print:py-1.5 flex items-center justify-between border-b ".concat(hIsCumbria ? 'bg-blue-50/70 border-blue-100 text-blue-950' : 'bg-amber-50/80 border-orange-100 text-amber-950'),
+          className: "px-3.5 py-2 print:py-1.5 flex items-center justify-between border-b ".concat(hIsCumbria ? 'bg-slate-900 text-white border-slate-800' : 'bg-amber-900 text-amber-50 border-amber-800'),
           style: {
+            backgroundColor: hIsCumbria ? '#0f172a' : '#78350f',
+            color: 'white',
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }
@@ -7656,19 +7789,23 @@ function App() {
         }, hIsCumbria ? 'Cumbria Spa & Hotel' : 'Sercotel Guadiana')), /*#__PURE__*/React.createElement("table", {
           className: "w-full text-left border-collapse"
         }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-          className: "".concat(hIsCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50', " font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ").concat(hIsCumbria ? 'border-blue-950' : 'border-orange-950'),
-          style: {
+          className: "".concat(g.includeBothHotels ? 'bg-slate-50 text-slate-600 border-b border-slate-200' : hIsCumbria ? 'bg-slate-900 text-white border-b border-blue-950' : 'bg-amber-950 text-amber-50 border-b border-orange-950', " font-black text-[10px] print:text-[8px] uppercase tracking-widest"),
+          style: g.includeBothHotels ? {
+            backgroundColor: '#f8fafc',
+            WebkitPrintColorAdjust: 'exact',
+            printColorAdjust: 'exact'
+          } : {
             backgroundColor: hIsCumbria ? '#0f172a' : '#451a03',
             color: 'white',
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }
         }, /*#__PURE__*/React.createElement("th", {
-          className: "p-4 print:py-2 print:px-3 font-extrabold"
+          className: "py-2.5 px-3 print:py-1.5 print:px-2 font-extrabold"
         }, "R\xE9gimen"), visibleRooms.map(function (room) {
           return /*#__PURE__*/React.createElement("th", {
             key: room,
-            className: "p-4 print:py-2 print:px-3 text-center font-extrabold"
+            className: "py-2.5 px-3 print:py-1.5 print:px-2 text-center font-extrabold"
           }, getRoomDisplayName(room));
         }))), /*#__PURE__*/React.createElement("tbody", {
           className: "divide-y divide-slate-100"
@@ -7683,17 +7820,17 @@ function App() {
           if (!hasPrices) return null;
           return /*#__PURE__*/React.createElement("tr", {
             key: board,
-            className: "".concat(idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30', " hover:bg-slate-50/50 transition-colors")
+            className: "".concat(idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40')
           }, /*#__PURE__*/React.createElement("td", {
-            className: "p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight"
+            className: "py-2.5 px-3 print:py-1.5 print:px-2 align-middle font-bold text-slate-800 uppercase tracking-tight"
           }, getBoardDisplayName(board)), visibleRooms.map(function (room) {
             var _hGrid$boardKey2;
             var price = hGrid === null || hGrid === void 0 || (_hGrid$boardKey2 = hGrid[boardKey]) === null || _hGrid$boardKey2 === void 0 ? void 0 : _hGrid$boardKey2[room];
             return /*#__PURE__*/React.createElement("td", {
               key: room,
-              className: "p-4 print:py-2.5 print:px-3 text-center align-middle"
+              className: "py-2.5 px-3 print:py-1.5 print:px-2 text-center align-middle"
             }, price ? /*#__PURE__*/React.createElement("span", {
-              className: "inline-block px-3 py-1 rounded-lg ".concat(hIsCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50', " text-xs print:text-[10px] font-extrabold tabular-nums"),
+              className: "inline-block px-2.5 py-0.5 rounded-md bg-slate-100/80 text-slate-900 text-xs print:text-[9.5px] font-extrabold tabular-nums",
               style: {
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
@@ -7702,18 +7839,18 @@ function App() {
               className: "text-slate-300 font-medium"
             }, "-"));
           }));
-        }))), /*#__PURE__*/React.createElement("div", {
-          className: "".concat(hIsCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50', " px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black"),
+        }))), !hideFooter && /*#__PURE__*/React.createElement("div", {
+          className: "bg-slate-50 text-slate-500 border-t border-slate-100 px-4 py-2 print:py-1.5 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-bold",
           style: {
-            backgroundColor: hIsCumbria ? '#f8fafc' : '#fffbeb',
+            backgroundColor: '#f8fafc',
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }
-        }, "Tarifas informativas por habitaci\xF3n y noche (IVA incluido)"));
+        }, "Tarifas por habitaci\xF3n y noche \xB7 IVA incluido"));
       };
       if (g.splitRatesBySegment && g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 1) {
         return /*#__PURE__*/React.createElement("div", {
-          className: "space-y-6 print:space-y-4"
+          className: "space-y-4 print:space-y-3"
         }, g.segments.map(function (seg, segIdx) {
           var segKey = String(seg.id || segIdx + 1);
           var segEntry = (g.segmentRatesOnlyGrids || {})[segKey] || {};
@@ -7722,23 +7859,35 @@ function App() {
           var segNightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
           return /*#__PURE__*/React.createElement("div", {
             key: segKey,
-            className: "space-y-3 print:space-y-2 break-inside-avoid"
+            className: "space-y-2 print:space-y-1.5 break-inside-avoid"
           }, /*#__PURE__*/React.createElement("div", {
-            className: "flex items-center justify-between px-4 py-2 print:py-1.5 rounded-xl bg-slate-800 text-white",
+            className: "flex items-center justify-between px-3.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-800",
             style: {
-              backgroundColor: '#1e293b',
-              color: 'white',
+              backgroundColor: '#f1f5f9',
               WebkitPrintColorAdjust: 'exact',
               printColorAdjust: 'exact'
             }
           }, /*#__PURE__*/React.createElement("span", {
-            className: "text-[11px] print:text-[9px] font-black uppercase tracking-widest"
-          }, "Estancia ", segIdx + 1, ": ", formatDate(seg.in), " - ", formatDate(seg.out)), /*#__PURE__*/React.createElement("span", {
-            className: "text-[10px] print:text-[8px] font-bold text-slate-300 uppercase tracking-wider"
-          }, segNightsCount, " ", segNightsCount === 1 ? 'noche' : 'noches', " \xB7 ", seg.pax || 0, " pax")), renderRatesTable(hotelName + '-' + segKey, isCumbria, currentRooms, segPrimary), g.includeBothHotels && renderRatesTable(secHotel + '-' + segKey, secIsCumbria, secRoomsList, segSecondary));
-        }));
+            className: "text-[11px] print:text-[9px] font-black uppercase tracking-wider"
+          }, "Estancia ", segIdx + 1, ": ", formatDate(seg.in), " \u2013 ", formatDate(seg.out)), /*#__PURE__*/React.createElement("span", {
+            className: "text-[10px] print:text-[8px] font-bold text-slate-500 uppercase tracking-wider"
+          }, segNightsCount, " ", segNightsCount === 1 ? 'noche' : 'noches', " \xB7 ", seg.pax || 0, " pax")), /*#__PURE__*/React.createElement("div", {
+            className: g.includeBothHotels ? "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3 print:gap-2.5" : ""
+          }, renderRatesTable(hotelName + '-' + segKey, isCumbria, currentRooms, segPrimary, true), g.includeBothHotels && renderRatesTable(secHotel + '-' + segKey, secIsCumbria, secRoomsList, segSecondary, true)));
+        }), /*#__PURE__*/React.createElement("p", {
+          className: "text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-bold text-slate-400 pt-1"
+        }, "Tarifas por habitaci\xF3n y noche \xB7 IVA incluido"));
       }
-      return /*#__PURE__*/React.createElement(React.Fragment, null, renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid), g.includeBothHotels && renderRatesTable(secHotel, secIsCumbria, secRoomsList, secondaryGrid));
+      if (g.includeBothHotels) {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "space-y-2"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 print:gap-3"
+        }, renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid, true), renderRatesTable(secHotel, secIsCumbria, secRoomsList, secondaryGrid, true)), /*#__PURE__*/React.createElement("p", {
+          className: "text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-bold text-slate-400 pt-1"
+        }, "Tarifas por habitaci\xF3n y noche \xB7 IVA incluido"));
+      }
+      return renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid, false);
     }()) : /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]"
     }, /*#__PURE__*/React.createElement("table", {
