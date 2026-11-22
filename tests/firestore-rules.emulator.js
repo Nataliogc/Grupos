@@ -92,6 +92,15 @@ async function fsDelete(docPath, token) {
   return fetch(`${BASE_DOC_URL}/${docPath}`, { method: 'DELETE', headers });
 }
 
+async function fsRunQuery(structuredQuery, token) {
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  return fetch(`${BASE_DOC_URL}:runQuery`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ structuredQuery })
+  });
+}
+
 let app;
 let adminDb;
 let adminAuth;
@@ -337,4 +346,104 @@ test('Fase 2 (Emulator): module compatibility (agency_deposits, pinned_modules, 
   await adminDb.collection('paygold_transactions').doc('cumbria_grupos_1001GRP00101').update({ bankStatus: 'COBRADO' });
   const txSnap = await adminDb.collection('paygold_transactions').doc('cumbria_grupos_1001GRP00101').get();
   assert.equal(txSnap.data().bankStatus, 'COBRADO');
+});
+
+test('Fase 2 (Emulator): hotel-scoped queries return only authorized hotel data and reject cross-hotel/unfiltered queries', async () => {
+  const cumbriaNames = ['Cumbria Spa&Hotel', 'Cumbria Spa & Hotel', 'Cumbria', 'Hotel Cumbria'];
+  const guadianaNames = ['Sercotel Guadiana', 'Guadiana', 'Hotel Guadiana'];
+  const hotelInQuery = (names) => ({
+    from: [{ collectionId: 'groups' }],
+    where: {
+      fieldFilter: {
+        field: { fieldPath: 'Hotel_Asignado' },
+        op: 'IN',
+        value: { arrayValue: { values: names.map(s => ({ stringValue: s })) } }
+      }
+    }
+  });
+  const unfilteredQuery = { from: [{ collectionId: 'groups' }] };
+
+  // Cumbria-only commercial: Cumbria query succeeds and returns ONLY Cumbria docs
+  const cumOk = await fsRunQuery(hotelInQuery(cumbriaNames), users.commercialCumbria.idToken);
+  assert.equal(cumOk.status, 200);
+  const cumDocs = (await cumOk.json()).filter(r => r.document).map(r => r.document.fields.Hotel_Asignado.stringValue);
+  assert.ok(cumDocs.length >= 2);
+  assert.ok(cumDocs.every(h => /cumbria/i.test(h)));
+
+  // Cumbria-only commercial: unfiltered or Guadiana query DENIED (403)
+  assert.equal((await fsRunQuery(unfilteredQuery, users.commercialCumbria.idToken)).status, 403);
+  assert.equal((await fsRunQuery(hotelInQuery(guadianaNames), users.commercialCumbria.idToken)).status, 403);
+
+  // Guadiana-only reception: Guadiana query succeeds and returns ONLY Guadiana docs
+  const guaOk = await fsRunQuery(hotelInQuery(guadianaNames), users.receptionGuadiana.idToken);
+  assert.equal(guaOk.status, 200);
+  const guaDocs = (await guaOk.json()).filter(r => r.document).map(r => r.document.fields.Hotel_Asignado.stringValue);
+  assert.ok(guaDocs.length >= 2);
+  assert.ok(guaDocs.every(h => /guadiana/i.test(h)));
+
+  // Guadiana-only reception: unfiltered or Cumbria query DENIED (403)
+  assert.equal((await fsRunQuery(unfilteredQuery, users.receptionGuadiana.idToken)).status, 403);
+  assert.equal((await fsRunQuery(hotelInQuery(cumbriaNames), users.receptionGuadiana.idToken)).status, 403);
+
+  // Multi-hotel direction: unfiltered query succeeds and returns docs from both hotels
+  const allOk = await fsRunQuery(unfilteredQuery, users.directionAll.idToken);
+  assert.equal(allOk.status, 200);
+  const allHotels = (await allOk.json()).filter(r => r.document).map(r => r.document.fields.Hotel_Asignado.stringValue);
+  assert.ok(allHotels.some(h => /cumbria/i.test(h)));
+  assert.ok(allHotels.some(h => /guadiana/i.test(h)));
+});
+
+test('Fase 2 & 3 (Emulator): negative economic protection blocks alt fields, nested objects, status tampering, forged payments and settings secrets', async () => {
+  // 1. Alternative economic fields on confirmed reservation -> DENIED
+  for (const payload of [
+    { importeAlternativo: 1 },
+    { precioFinal: 10 },
+    { descuentoEspecial: 99 },
+    { RoomingList_JSON: '[{"price":1}]' },
+    { DailyDistribution_JSON: '{"2026-12-01":{"pvp":1}}' }
+  ]) {
+    assert.equal((await fsPatch('groups/GRP-CUM-1001', payload, users.commercialCumbria.idToken)).status, 403);
+    assert.equal((await fsPatch('groups/GRP-GUA-2001', payload, users.receptionGuadiana.idToken)).status, 403);
+  }
+
+  // 2. Nested economic/payment objects on confirmed reservation -> DENIED
+  for (const nested of [
+    { payment: { paid: 9999, status: 'paid' } },
+    { pricing: { total: 1, override: true } },
+    { financials: { discount: 100 } }
+  ]) {
+    assert.equal((await fsPatch('groups/GRP-CUM-1001', nested, users.commercialCumbria.idToken)).status, 403);
+    assert.equal((await fsPatch('groups/GRP-GUA-2001', nested, users.receptionGuadiana.idToken)).status, 403);
+  }
+
+  // 3. Unexpected status transitions on confirmed reservation -> DENIED
+  for (const statusPayload of [
+    { Estado: 'Presupuesto' },
+    { Com_Estado_Interno: 'Pagado' },
+    { isBudget: true },
+    { status: 'cancelled' }
+  ]) {
+    assert.equal((await fsPatch('groups/GRP-CUM-1001', statusPayload, users.commercialCumbria.idToken)).status, 403);
+    assert.equal((await fsPatch('groups/GRP-GUA-2001', statusPayload, users.receptionGuadiana.idToken)).status, 403);
+  }
+
+  // 4. Forged payment fields on quote create, quote update, or quote conversion -> DENIED
+  assert.equal((await fsCreate('groups', 'PRES-FORGE-1', {
+    Reserva: 'PRES-FORGE-1', Hotel_Asignado: 'Cumbria Spa&Hotel', Com_Total: 1000, Com_Pagado: 1000
+  }, users.commercialCumbria.idToken)).status, 403);
+  assert.equal((await fsCreate('groups', 'PRES-FORGE-2', {
+    Reserva: 'PRES-FORGE-2', Hotel_Asignado: 'Cumbria Spa&Hotel', Com_Total: 1000, PayGold_UltimoEstado: 'PAGADO'
+  }, users.commercialCumbria.idToken)).status, 403);
+  assert.equal((await fsCreate('groups', '77999', {
+    Reserva: '77999', Presupuesto_Origen: 'PRES-CUM-101', Hotel_Asignado: 'Cumbria Spa&Hotel', Com_Total: 2000, Com_Pagado: 2000
+  }, users.commercialCumbriaConv.idToken)).status, 403);
+
+  // 5. Writing geminiApiKey, pin, or users into settings/main -> DENIED even for admin!
+  for (const forbidden of [
+    { system: { geminiApiKey: 'AIzaFakeKey123' } },
+    { system: { pin: '1234' } },
+    { system: { users: [{ email: 'x@y.z', pass: '1234' }] } }
+  ]) {
+    assert.equal((await fsPatch('settings/main', forbidden, users.admin.idToken)).status, 403);
+  }
 });

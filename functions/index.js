@@ -55,16 +55,21 @@ exports.analizarGruposIA = onRequest(
         });
       }
 
-      const { datos, prompt: customPrompt } = req.body;
+      const { datos, prompt: customPrompt, model: requestedModel } = req.body || {};
+      const allowedModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      const selectedModel = allowedModels.includes(requestedModel) ? requestedModel : "gemini-1.5-flash";
 
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: selectedModel,
       });
 
       let finalPrompt = "";
 
-      if (customPrompt) {
+      if (typeof customPrompt === "string" && customPrompt.trim()) {
+        if (customPrompt.length > 100000) {
+          return res.status(400).json({ error: "El prompt supera el límite permitido." });
+        }
         finalPrompt = customPrompt;
       } else if (datos && Array.isArray(datos)) {
         finalPrompt = `
@@ -90,6 +95,8 @@ Genera un informe estratégico en Markdown con:
       const text = response.text();
 
       return res.status(200).json({
+        ok: true,
+        text: text,
         informe: text,
         timestamp: new Date().toISOString(),
       });

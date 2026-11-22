@@ -283,6 +283,15 @@ var App = function App() {
             })
           });
         });
+        setConfig(function (prev) {
+          if (!prev.system) return prev;
+          var cleanSystem = _objectSpread({}, prev.system);
+          delete cleanSystem.geminiApiKey;
+          delete cleanSystem.pin;
+          return _objectSpread(_objectSpread({}, prev), {}, {
+            system: cleanSystem
+          });
+        });
       }
     });
     // Lucide se maneja ahora a través del componente LucideIcon
@@ -300,6 +309,7 @@ var App = function App() {
             });
             delete dataToSave.system.users;
             delete dataToSave.system.pin;
+            delete dataToSave.system.geminiApiKey;
             if (dataToSave.guadiana) {
               delete dataToSave.guadiana.clauses;
               delete dataToSave.guadiana.confirmationClauses;
@@ -340,7 +350,7 @@ var App = function App() {
   }();
   var handleResetAllGroups = /*#__PURE__*/function () {
     var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-      var snapshot, batch, count, _t2;
+      var groupsQuery, snapshot, batch, count, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
@@ -352,8 +362,9 @@ var App = function App() {
           case 1:
             setLoading(true);
             _context2.p = 2;
+            groupsQuery = typeof window.getNexusGroupsQuery === "function" ? window.getNexusGroupsQuery(db) : db.collection("groups");
             _context2.n = 3;
-            return db.collection("groups").get();
+            return groupsQuery.get();
           case 3:
             snapshot = _context2.v;
             batch = db.batch();
@@ -1024,17 +1035,11 @@ var App = function App() {
     value: "gemini-1.5-flash"
   }, "Gemini 1.5 Flash (Est\xE1ndar)"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1"
-  }, "Gemini API Key (Privada)"), /*#__PURE__*/React.createElement("input", {
-    type: "password",
-    value: config.system.geminiApiKey || "",
-    onChange: function onChange(e) {
-      return handleChange('system', 'geminiApiKey', e.target.value);
-    },
-    placeholder: "Paste your API key here...",
-    className: "w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none focus:bg-white/20 transition-all"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-emerald-200/50 mt-1 italic"
-  }, "La clave se guarda encriptada en tu instancia privada de Firestore."))))), /*#__PURE__*/React.createElement("div", {
+  }, "Credenciales de Gemini"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-50/90 bg-white/10 border border-white/20 rounded-xl px-4 py-3 leading-relaxed"
+  }, "Gestionadas exclusivamente en servidor mediante Google Cloud Secret Manager (", /*#__PURE__*/React.createElement("code", {
+    className: "font-mono"
+  }, "GEMINI_KEY"), ") y Cloud Functions autenticadas. No se almacenan claves API en el navegador ni en Firestore."))))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "p-6 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col justify-center"

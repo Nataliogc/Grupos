@@ -2155,7 +2155,10 @@ ${comercial}`;
 
           if (matchedDocs.length === 0 && data.resId) {
             try {
-              const qSnap = await db.collection("groups").where("Reserva", "==", data.resId).get();
+              const baseQuery = typeof window.getNexusGroupsQuery === "function"
+                ? window.getNexusGroupsQuery(db)
+                : db.collection("groups");
+              const qSnap = await baseQuery.where("Reserva", "==", data.resId).get();
               qSnap.forEach(d => matchedDocs.push(d));
             } catch (e) {}
           }
@@ -3688,7 +3691,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.108 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.109 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -4581,7 +4584,10 @@ ${comercial}`;
       }, [data]);
 
       useEffect(() => {
-        const unsubscribe = db.collection("groups").onSnapshot((snapshot) => {
+        const subscribeGroups = typeof window.nexusListenGroups === "function"
+          ? (next) => window.nexusListenGroups(db, next)
+          : (next) => db.collection("groups").onSnapshot(next);
+        const unsubscribe = subscribeGroups((snapshot) => {
           const parsed = [];
           snapshot.forEach((doc) => {
             const row = doc.data();

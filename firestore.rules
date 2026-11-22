@@ -27,6 +27,24 @@ service cloud.firestore {
     function canConvertBudget() {
       return staff() && member().get('canConvertBudget', false) == true;
     }
+    function hasAllHotels() {
+      let h = member().get('hotels', []);
+      return h is list && 'cumbria' in h && 'guadiana' in h;
+    }
+    function allowedHotelNames() {
+      let h = member().get('hotels', []);
+      let c = (h is list && 'cumbria' in h)
+        ? ['Cumbria Spa&Hotel', 'Cumbria Spa & Hotel', 'Cumbria', 'Hotel Cumbria']
+        : [];
+      let g = (h is list && 'guadiana' in h)
+        ? ['Sercotel Guadiana', 'Guadiana', 'Hotel Guadiana']
+        : [];
+      return c.concat(g);
+    }
+    function canReadHotel(data) {
+      return hasAllHotels()
+        || (data.Hotel_Asignado is string && data.Hotel_Asignado in allowedHotelNames());
+    }
     function docHotel(data) {
       let raw = data.get('Hotel_Asignado', data.get('Hotel', ''));
       return raw is string && raw.matches('(?i).*guadiana.*') ? 'guadiana'
@@ -37,7 +55,7 @@ service cloud.firestore {
         && member().get('hotels', []) is list
         && hotelKey in member().hotels;
     }
-    function canAccessHotel(data) {
+    function canWriteHotel(data) {
       let h = docHotel(data);
       return h != '' ? hasHotel(h) : permitted(['admin']);
     }
@@ -57,18 +75,46 @@ service cloud.firestore {
         return (o1 is string && o1.matches('(?i)^PRES-.*'))
           || (o2 is string && o2.matches('(?i)^PRES-.*'));
       }
-      function financialFields() {
+      // Strict allowlist of non-financial operational fields that commercial/reception
+      // may edit on confirmed reservations. Blocks alternative economic fields,
+      // nested pricing/payment objects, RoomingList_JSON/DailyDistribution_JSON, and
+      // unexpected status transitions.
+      function operationalFields() {
         return [
-          'Reserva', 'Hotel_Asignado', 'Hotel',
-          'Com_Total', 'Total', 'total', 'Importe(*)',
-          'Com_Pagado', 'Com_Pendiente', 'PaymentPlan_JSON',
-          'PayGold_UltimoPedido', 'PayGold_UltimoImporte', 'PayGold_UltimoEstado',
-          'PayGold_UltimaAutorizacion', 'PayGold_FechaCobro', 'Enlace_TPV',
-          'depositApplied', 'agencyDepositUsed'
+          'Observaciones', 'observaciones', 'Notas', 'notas', 'tracking',
+          'RoomingServicios_JSON', 'ServiceOrder_JSON', 'RoomingNotes', 'roomingNotes',
+          'Contacto', 'contacto', 'Email', 'email', 'Telefono', 'telefono',
+          'Guia', 'guia', 'Hora_Llegada', 'Hora_Salida',
+          'hasCustomClauses', 'hasCustomClausesConf', 'customClauses', 'customClausesConf',
+          'mesachefSynced', 'mesachefSyncedAt', 'mesachefStatus',
+          'updatedAt', 'updatedBy'
         ];
       }
-      function touchesFinancial() {
-        return request.resource.data.diff(resource.data).affectedKeys().hasAny(financialFields());
+      // Payment/settlement fields that non-management roles may NEVER inject even on quotes
+      // or during quote-to-reservation conversion.
+      function paymentLockedFields() {
+        return [
+          'Com_Pagado', 'Com_Pendiente',
+          'PayGold_UltimoPedido', 'PayGold_UltimoImporte', 'PayGold_UltimoEstado',
+          'PayGold_UltimaAutorizacion', 'PayGold_FechaCobro', 'Enlace_TPV',
+          'depositApplied', 'agencyDepositUsed',
+          'payment', 'payments', 'paid', 'pagado', 'cobrado', 'fianzaPagada', 'senalPagada'
+        ];
+      }
+      function onlyOperationalChange() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(operationalFields());
+      }
+      function touchesPaymentLocked() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny(paymentLockedFields());
+      }
+      function hasForgedPaymentOnCreate() {
+        return request.resource.data.get('Com_Pagado', 0) != 0
+          || request.resource.data.keys().hasAny([
+            'PayGold_UltimoPedido', 'PayGold_UltimoImporte', 'PayGold_UltimoEstado',
+            'PayGold_UltimaAutorizacion', 'PayGold_FechaCobro', 'Enlace_TPV',
+            'depositApplied', 'agencyDepositUsed',
+            'payment', 'payments', 'paid', 'pagado', 'cobrado', 'fianzaPagada', 'senalPagada'
+          ]);
       }
       function isQuoteConversionCreate() {
         return !quote(request.resource.data) && hasQuoteOrigin(request.resource.data);
@@ -81,25 +127,25 @@ service cloud.firestore {
         );
       }
 
-      allow read: if staff() && canAccessHotel(resource.data);
+      allow read: if staff() && canReadHotel(resource.data);
 
-      allow create: if staff() && canAccessHotel(request.resource.data) && (
-        (isQuoteConversionCreate() && canConvertBudget())
+      allow create: if staff() && canWriteHotel(request.resource.data) && (
+        (isQuoteConversionCreate() && canConvertBudget() && (managesAccounts() || !hasForgedPaymentOnCreate()))
         || (!isQuoteConversionCreate() && managesAccounts())
-        || (permitted(['admin', 'direction', 'commercial']) && quote(request.resource.data))
+        || (permitted(['commercial']) && quote(request.resource.data) && !hasForgedPaymentOnCreate())
       );
 
       allow update: if staff()
-        && canAccessHotel(resource.data)
-        && canAccessHotel(request.resource.data)
+        && canWriteHotel(resource.data)
+        && canWriteHotel(request.resource.data)
         && (
-          (isQuoteConversionUpdate() && canConvertBudget())
+          (isQuoteConversionUpdate() && canConvertBudget() && (managesAccounts() || !touchesPaymentLocked()))
           || (!isQuoteConversionUpdate() && managesAccounts())
-          || (!isQuoteConversionUpdate() && permitted(['commercial']) && quote(resource.data) && quote(request.resource.data))
-          || (!isQuoteConversionUpdate() && !touchesFinancial())
+          || (!isQuoteConversionUpdate() && permitted(['commercial']) && quote(resource.data) && quote(request.resource.data) && !touchesPaymentLocked())
+          || (!isQuoteConversionUpdate() && onlyOperationalChange())
         );
 
-      allow delete: if staff() && canAccessHotel(resource.data) && (
+      allow delete: if staff() && canWriteHotel(resource.data) && (
         managesAccounts()
         || (permitted(['commercial']) && quote(resource.data))
       );
@@ -115,9 +161,16 @@ service cloud.firestore {
     }
 
     match /settings/{id} {
+      function hasForbiddenSecretFields() {
+        return id == 'main'
+          && request.resource.data.get('system', {}) is map
+          && request.resource.data.get('system', {}).keys().hasAny(['geminiApiKey', 'pin', 'users']);
+      }
       allow read: if staff() && id != 'users';
-      allow write: if (managesAccounts() && id != 'users')
-        || (staff() && id == 'pinned_modules_' + request.auth.uid.lower());
+      allow write: if !hasForbiddenSecretFields() && (
+        (managesAccounts() && id != 'users')
+        || (staff() && id == 'pinned_modules_' + request.auth.uid.lower())
+      );
     }
   }
 }

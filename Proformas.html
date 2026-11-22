@@ -176,7 +176,10 @@
                 // Quitamos el orderBy de la consulta para evitar requerir un índice compuesto, 
                 // ya que Firestore exige un índice para filtrar por un campo (isIndependentProforma) y ordenar por otro (updatedAt).
                 // Ordenaremos los resultados en memoria.
-                const snapshot = await db.collection("groups")
+                const groupsQuery = typeof window.getNexusGroupsQuery === "function"
+                    ? window.getNexusGroupsQuery(db)
+                    : db.collection("groups");
+                const snapshot = await groupsQuery
                     .where("isIndependentProforma", "==", true)
                     .get();
 

@@ -240,3 +240,40 @@ test('Fase 1: shared PIN removed from Configuracion and plaintext password stora
   assert.match(usuariosHtml, /value="reception"/);
   assert.match(usuariosHtml, /canConvertBudget/);
 });
+
+test('Fase 2: Gemini client never reads geminiApiKey or calls Google AI directly; Configuracion strips geminiApiKey', async (t) => {
+  const geminiJs = fs.readFileSync(path.join(root, 'js', 'gemini.js'), 'utf8');
+  const cfgJsx = fs.readFileSync(path.join(root, 'src', 'Configuracion.jsx'), 'utf8');
+  const cfgJs = fs.readFileSync(path.join(root, 'js', 'Configuracion.js'), 'utf8');
+
+  assert.doesNotMatch(geminiJs, /geminiApiKey/);
+  assert.doesNotMatch(geminiJs, /generativelanguage\.googleapis\.com/);
+  assert.doesNotMatch(geminiJs, /firebaseConfig\.apiKey/);
+  assert.match(geminiJs, /analizarGruposIA/);
+
+  assert.doesNotMatch(cfgJsx, /Gemini API Key/);
+  assert.doesNotMatch(cfgJs, /Gemini API Key/);
+  assert.match(cfgJsx, /delete dataToSave\.system\.geminiApiKey/);
+
+  // Test callGemini runtime behavior: rejects unauthenticated, sends Bearer token when authenticated
+  const { callGemini } = require('../js/gemini');
+  globalThis.firebase = { auth: () => ({ currentUser: null }) };
+  const unauthRes = await callGemini('Hola');
+  assert.equal(unauthRes.ok, false);
+  assert.equal(unauthRes.status, 401);
+
+  let capturedAuth = '';
+  let capturedUrl = '';
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    capturedUrl = url;
+    capturedAuth = init.headers.Authorization;
+    return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true, text: 'Respuesta IA' }) };
+  });
+  globalThis.firebase = { auth: () => ({ currentUser: { getIdToken: async () => 'fake-id-token-123' } }) };
+  const authRes = await callGemini('Resume este grupo');
+  assert.equal(authRes.ok, true);
+  assert.equal(authRes.text, 'Respuesta IA');
+  assert.equal(capturedAuth, 'Bearer fake-id-token-123');
+  assert.match(capturedUrl, /analizarGruposIA/);
+  delete globalThis.firebase;
+});

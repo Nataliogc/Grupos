@@ -197,6 +197,13 @@
                                 }
                             };
                         });
+                        setConfig(prev => {
+                            if (!prev.system) return prev;
+                            const cleanSystem = { ...prev.system };
+                            delete cleanSystem.geminiApiKey;
+                            delete cleanSystem.pin;
+                            return { ...prev, system: cleanSystem };
+                        });
                     }
                 });
                 // Lucide se maneja ahora a través del componente LucideIcon
@@ -208,6 +215,7 @@
                     const dataToSave = { ...config, system: { ...config.system } };
                     delete dataToSave.system.users;
                     delete dataToSave.system.pin;
+                    delete dataToSave.system.geminiApiKey;
                     if (dataToSave.guadiana) { delete dataToSave.guadiana.clauses; delete dataToSave.guadiana.confirmationClauses; }
                     if (dataToSave.cumbria) { delete dataToSave.cumbria.clauses; delete dataToSave.cumbria.confirmationClauses; }
                     await db.collection("settings").doc("main").set(dataToSave);
@@ -223,7 +231,10 @@
                 if (!window.confirm("ATENCIÓN: Esto borrará las cláusulas personalizadas de TODOS los presupuestos/grupos guardados. Todos volverán a heredar las cláusulas generales que tengas aquí configuradas. ¿Estás absolutamente seguro de continuar?")) return;
                 setLoading(true);
                 try {
-                    const snapshot = await db.collection("groups").get();
+                    const groupsQuery = typeof window.getNexusGroupsQuery === "function"
+                        ? window.getNexusGroupsQuery(db)
+                        : db.collection("groups");
+                    const snapshot = await groupsQuery.get();
                     const batch = db.batch();
                     let count = 0;
                     snapshot.forEach(doc => {
@@ -779,15 +790,10 @@
                                                         </select>
                                                     </div>
                                                     <div>
-                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Gemini API Key (Privada)</label>
-                                                        <input
-                                                            type="password"
-                                                            value={config.system.geminiApiKey || ""}
-                                                            onChange={(e) => handleChange('system', 'geminiApiKey', e.target.value)}
-                                                            placeholder="Paste your API key here..."
-                                                            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none focus:bg-white/20 transition-all"
-                                                        />
-                                                        <p className="text-[9px] text-emerald-200/50 mt-1 italic">La clave se guarda encriptada en tu instancia privada de Firestore.</p>
+                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Credenciales de Gemini</label>
+                                                        <p className="text-xs text-emerald-50/90 bg-white/10 border border-white/20 rounded-xl px-4 py-3 leading-relaxed">
+                                                            Gestionadas exclusivamente en servidor mediante Google Cloud Secret Manager (<code className="font-mono">GEMINI_KEY</code>) y Cloud Functions autenticadas. No se almacenan claves API en el navegador ni en Firestore.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
