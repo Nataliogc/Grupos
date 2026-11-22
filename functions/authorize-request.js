@@ -8,7 +8,7 @@ async function authorizeRequest(header, auth, db) {
   catch { return {status: 401}; }
   if (!user.email || user.email.toLowerCase() === 'demo@hotel.com') return {status: 403};
   const member = (await db.collection('access_members').doc(user.uid).get()).data();
-  if (member?.active !== true || !['admin','direction','commercial'].includes(member.role)) return {status: 403};
+  if (member?.active !== true || !['admin','direction','reception','commercial'].includes(member.role)) return {status: 403};
   return {status: 200, member};
 }
 

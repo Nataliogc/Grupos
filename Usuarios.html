@@ -29,7 +29,9 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 7px
 <form id="createForm" class="grid">
 <div><label for="name">Nombre</label><input id="name" required minlength="2" maxlength="100"></div>
 <div><label for="email">Correo electrónico</label><input id="email" type="email" autocomplete="off" required></div>
-<div><label for="role">Perfil</label><select id="role"><option value="commercial">Comercial</option><option value="direction">Dirección</option><option value="admin">Administrador</option></select></div>
+<div><label for="role">Perfil</label><select id="role"><option value="commercial">Comercial</option><option value="reception">Recepción</option><option value="direction">Dirección</option><option value="admin">Administrador</option></select></div>
+<div><label for="hotels">Hoteles autorizados</label><select id="hotels"><option value="cumbria,guadiana">Cumbria y Guadiana</option><option value="cumbria">Solo Cumbria</option><option value="guadiana">Solo Guadiana</option></select></div>
+<div><label for="canConvertBudget"><input id="canConvertBudget" type="checkbox" style="width:auto;margin-right:8px">Permitir convertir presupuestos en reserva definitiva</label></div>
 <div><button class="primary" type="submit">Crear cuenta e invitación</button></div>
 </form>
 <p class="muted">Se genera un enlace para que el nuevo empleado establezca su propia contraseña. El administrador debe enviárselo por un canal privado y verificar el destinatario.</p>
@@ -38,7 +40,7 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 7px
 <p class="muted">Este enlace puede permitir establecer una contraseña. No lo publiques ni lo reenvíes a terceros.</p></div>
 </section>
 <section class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Directorio de usuarios</h2><button id="reload">Actualizar lista</button></div>
-<table><thead><tr><th>Empleado</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table>
+<table><thead><tr><th>Empleado</th><th>Correo</th><th>Rol</th><th>Hoteles / Conversión</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table>
 <p class="muted">La revocación desactiva Firebase Authentication, la membresía y los tokens de actualización. Las operaciones de pago requieren controles independientes.</p>
 </section></div>
 </main>
@@ -54,7 +56,12 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 7px
 (function(){
 'use strict';
 const $=id=>document.getElementById(id), notice=$('notice'), gate=$('gate'), panel=$('panel');
-const roles={admin:'Administrador',direction:'Dirección',commercial:'Comercial'};
+const roles={admin:'Administrador',direction:'Dirección',reception:'Recepción',commercial:'Comercial'};
+const validRoles=['admin','direction','reception','commercial'];
+function parseHotels(raw){
+  const list=String(raw||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  return list.length && list.every(h=>h==='cumbria'||h==='guadiana') ? [...new Set(list)] : null;
+}
 function message(text){notice.textContent=text;notice.style.display='block';}
 function error(e){message('Operación no completada: '+(e?.message||'Error de servidor'));}
 function secureLink(email,url){$('secretEmail').textContent='Destinatario: '+email;$('secretUrl').textContent=url;$('secret').style.display='block';$('copySecret').onclick=()=>navigator.clipboard.writeText(url).then(()=>message('Enlace copiado. Envíalo únicamente a su destinatario.')).catch(error);}
@@ -66,26 +73,35 @@ async function refresh(){
   const r=await api('nexusListUsers');items=r.users||[];$('users').replaceChildren();
   for(const u of items){
     const tr=document.createElement('tr');
-    for(const value of [u.name,u.email,u.linked?(roles[u.role]||u.role):'Sin vincular',u.disabled?'Inhabilitado':(u.linked&&u.active?'Activo':'Sin permiso')]){
+    const hotelsLabel = (u.hotels && u.hotels.length) ? u.hotels.join(', ') : 'Sin hoteles';
+    const convLabel = u.canConvertBudget ? 'Sí convierte' : 'No convierte';
+    for(const value of [u.name,u.email,u.linked?(roles[u.role]||u.role):'Sin vincular',u.linked?(hotelsLabel+' · '+convLabel):'—',u.disabled?'Inhabilitado':(u.linked&&u.active?'Activo':'Sin permiso')]){
       const td=document.createElement('td');td.textContent=value;tr.appendChild(td);
     }
     const actions=document.createElement('td'),wrap=document.createElement('div');wrap.className='actions';
     if(u.testAccount) { actions.textContent='Cuenta demo: no asignar acceso';tr.appendChild(actions);$('users').appendChild(tr);continue; }
     if(!u.linked && !u.disabled){wrap.append(button('Vincular cuenta',async()=>{
       const name=prompt('Nombre del empleado',u.name||'');if(name===null)return;
-      const role=prompt('Rol: admin, direction o commercial','commercial');if(role===null)return;
-      if(!['admin','direction','commercial'].includes(role)){message('Rol incorrecto');return;}
+      const role=prompt('Rol: admin, direction, reception o commercial','commercial');if(role===null)return;
+      if(!validRoles.includes(role)){message('Rol incorrecto');return;}
+      const hotelsRaw=prompt('Hoteles autorizados (cumbria, guadiana)','cumbria, guadiana');if(hotelsRaw===null)return;
+      const hotels=parseHotels(hotelsRaw);if(!hotels){message('Hoteles incorrectos');return;}
+      const canConvertBudget=confirm('¿Permitir convertir presupuestos en reserva definitiva?');
       if(!confirm('¿Vincular '+u.email+' como '+role+'?'))return;
-      try{await api('nexusLinkUser',{email:u.email,name,role});await refresh();message('Cuenta existente vinculada sin duplicarla.');}catch(e){error(e)}
+      try{await api('nexusLinkUser',{email:u.email,name,role,hotels,canConvertBudget});await refresh();message('Cuenta existente vinculada sin duplicarla.');}catch(e){error(e)}
     },'primary')}
     if(u.linked)wrap.append(button('Editar',async()=>{
       const name=prompt('Nombre del empleado',u.name);if(name===null)return;
-      const role=prompt('Rol: admin, direction o commercial',u.role);if(role===null)return;
-      if(!['admin','direction','commercial'].includes(role)){message('Rol incorrecto');return;}
+      const role=prompt('Rol: admin, direction, reception o commercial',u.role);if(role===null)return;
+      if(!validRoles.includes(role)){message('Rol incorrecto');return;}
+      const hotelsRaw=prompt('Hoteles autorizados (cumbria, guadiana)',(u.hotels&&u.hotels.length?u.hotels:['cumbria','guadiana']).join(', '));
+      if(hotelsRaw===null)return;
+      const hotels=parseHotels(hotelsRaw);if(!hotels){message('Hoteles incorrectos');return;}
+      const canConvertBudget=confirm('¿Permitir convertir presupuestos en reserva definitiva?\n(Aceptar = Sí, Cancelar = No)');
       const scopes=prompt('Permisos PayGold separados por comas. Indica hotel/aplicación, por ejemplo cumbria/grupos. Hoteles: cumbria, guadiana. Aplicaciones: grupos, mesachef, spa.',(u.paymentScopes||[]).join(', '));
       if(scopes===null)return;
       const paymentScopes=scopes.split(',').map(s=>s.trim()).filter(Boolean);
-      try{await api('nexusUpdateUser',{uid:u.uid,name,role,paymentScopes});await refresh();message('Perfil actualizado');}catch(e){error(e)}
+      try{await api('nexusUpdateUser',{uid:u.uid,name,role,hotels,canConvertBudget,paymentScopes});await refresh();message('Perfil actualizado');}catch(e){error(e)}
     }));
     if(u.linked&&u.uid!==ownUid)wrap.append(button(u.active?'Revocar':'Reactivar',async()=>{
       if(!confirm('¿Confirmas el cambio de acceso de '+u.email+'?'))return;
@@ -100,7 +116,7 @@ async function refresh(){
 }
 $('createForm').onsubmit=async event=>{
   event.preventDefault();const submit=event.target.querySelector('button[type=submit]');submit.disabled=true;
-  try{const result=await api('nexusCreateUser',{name:$('name').value,email:$('email').value,role:$('role').value});
+  try{const hotels=$('hotels').value.split(',').filter(Boolean);const result=await api('nexusCreateUser',{name:$('name').value,email:$('email').value,role:$('role').value,hotels,canConvertBudget:$('canConvertBudget').checked});
     event.target.reset();await refresh();secureLink(result.email,result.setupLink);message('Usuario creado. Entrega el enlace de activación de forma segura.');
   }catch(e){error(e)}finally{submit.disabled=false}
 };

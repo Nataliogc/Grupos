@@ -10,10 +10,24 @@ if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();
 const options = { region: 'us-central1' };
-const roles = ['admin', 'direction', 'commercial'];
+const roles = ['admin', 'direction', 'reception', 'commercial'];
+const validHotels = ['cumbria', 'guadiana'];
 const members = db.collection('access_members');
 const clean = s => String(s || '').trim();
 const emailOf = s => clean(s).toLowerCase();
+
+function ensureHotels(hotels, fallback = validHotels) {
+  if (hotels === undefined) return [...fallback];
+  if (!Array.isArray(hotels) || hotels.length === 0 || hotels.some(h => !validHotels.includes(h)))
+    throw new HttpsError('invalid-argument', 'Hoteles autorizados no válidos.');
+  return [...new Set(hotels)];
+}
+function ensureCanConvertBudget(value, defaultValue = false) {
+  if (value === undefined) return Boolean(defaultValue);
+  if (typeof value !== 'boolean')
+    throw new HttpsError('invalid-argument', 'Permiso de conversión de presupuesto no válido.');
+  return value;
+}
 
 async function requireAdmin(request) {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Identificación obligatoria.');
@@ -22,6 +36,12 @@ async function requireAdmin(request) {
     throw new HttpsError('permission-denied', 'Solo el administrador puede gestionar cuentas.');
   const record = await auth.getUser(request.auth.uid);
   if (record.disabled || emailOf(record.email) === 'demo@hotel.com') throw new HttpsError('permission-denied', 'Cuenta deshabilitada.');
+  if (record.tokensValidAfterTime) {
+    const validAfterMs = Date.parse(record.tokensValidAfterTime);
+    const authTimeMs = Number(request.auth.token?.auth_time || 0) * 1000;
+    if (Number.isFinite(validAfterMs) && authTimeMs > 0 && authTimeMs < validAfterMs)
+      throw new HttpsError('unauthenticated', 'Sesión revocada. Vuelve a iniciar sesión.');
+  }
   return request.auth.uid;
 }
 function input(data) {
@@ -77,6 +97,8 @@ exports.nexusListUsers = onCall(options, async request => {
       active: membership?.active === true && !u.disabled,
       disabled: u.disabled,
       linked: !!membership,
+      hotels: Array.isArray(membership?.hotels) ? membership.hotels : [],
+      canConvertBudget: membership?.canConvertBudget === true,
       paymentScopes: membership?.paymentScopes || [],
       testAccount: (u.email || '').toLowerCase() === 'demo@hotel.com'
     };
@@ -90,6 +112,8 @@ exports.nexusLinkUser = onCall(options, async request => {
   const email = ensureEmail(data.email);
   const role = ensureRole(data.role);
   const name = ensureName(data.name);
+  const hotels = ensureHotels(data.hotels);
+  const canConvertBudget = ensureCanConvertBudget(data.canConvertBudget, role === 'admin');
   if (email === 'demo@hotel.com')
     throw new HttpsError('failed-precondition', 'No se puede vincular la cuenta de demostración.');
   let record;
@@ -106,7 +130,7 @@ exports.nexusLinkUser = onCall(options, async request => {
   if (existing.exists)
     throw new HttpsError('already-exists', 'Esta cuenta ya tiene un perfil Nexus; utiliza Editar.');
   await ref.create({
-    email: record.email || email, name, role, active: true,
+    email: record.email || email, name, role, hotels, canConvertBudget, active: true,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   });
@@ -120,6 +144,8 @@ exports.nexusCreateUser = onCall(options, async request => {
   if (email === 'demo@hotel.com') throw new HttpsError('permission-denied', 'Cuenta bloqueada.');
   const name = ensureName(data.name);
   const role = ensureRole(data.role);
+  const hotels = ensureHotels(data.hotels);
+  const canConvertBudget = ensureCanConvertBudget(data.canConvertBudget, role === 'admin');
   // Never accept a password from the administrator's browser.
   // A random password remains unknown; the user sets their own via reset.
   const randomPassword = crypto.randomBytes(36).toString('base64url') + 'Aa1!';
@@ -127,12 +153,12 @@ exports.nexusCreateUser = onCall(options, async request => {
   try {
     created = await auth.createUser({ email, displayName: name, password: randomPassword,
       emailVerified: false, disabled: false });
-    await members.doc(created.uid).set({ name, email, role, active: true,
+    await members.doc(created.uid).set({ name, email, role, hotels, canConvertBudget, active: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     const setupLink = await auth.generatePasswordResetLink(email);
     // Link is sensitive, supplied once to authorized admin for secure delivery.
-    return { uid: created.uid, email, name, role, setupLink };
+    return { uid: created.uid, email, name, role, hotels, canConvertBudget, setupLink };
   } catch (err) {
     if (created) {
       await members.doc(created.uid).delete().catch(() => {});
@@ -159,6 +185,12 @@ exports.nexusUpdateUser = onCall(options, async request => {
     if (!Array.isArray(scopes) || scopes.some(s => !/^(cumbria|guadiana)\/(grupos|mesachef|spa)$/.test(s)))
       throw new HttpsError('invalid-argument', 'Permiso de cobro desconocido.');
     changes.paymentScopes = [...new Set(scopes)];
+  }
+  if (request.data.hotels !== undefined) {
+    changes.hotels = ensureHotels(request.data.hotels);
+  }
+  if (request.data.canConvertBudget !== undefined) {
+    changes.canConvertBudget = ensureCanConvertBudget(request.data.canConvertBudget);
   }
   const newRole = role === undefined ? data.role : ensureRole(role);
   const newActive = active === undefined ? data.active === true : active;

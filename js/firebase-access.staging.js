@@ -12,14 +12,23 @@
     }
     return firebase.auth();
   }
+  const VALID_ROLES = ['admin', 'direction', 'reception', 'commercial'];
   async function getMember(user) {
     if (!user || !window.db) throw new Error('Identidad no disponible');
+    if (typeof user.getIdToken === 'function') {
+      await user.getIdToken(true);
+    }
     const snapshot = await window.db.collection('access_members').doc(user.uid).get({source: 'server'});
     const member = snapshot.exists ? snapshot.data() : null;
-    if (user.email?.toLowerCase() === 'demo@hotel.com' || !member || member.active !== true || !['admin','direction','commercial'].includes(member.role)) {
+    if (user.email?.toLowerCase() === 'demo@hotel.com' || !member || member.active !== true || !VALID_ROLES.includes(member.role)) {
       throw new Error('Cuenta sin permiso para Nexus Groups');
     }
-    return { role: member.role, active: true };
+    return {
+      role: member.role,
+      active: true,
+      hotels: Array.isArray(member.hotels) ? member.hotels : [],
+      canConvertBudget: member.canConvertBudget === true
+    };
   }
   function start(callback) {
     return getAuth().onAuthStateChanged(async function (user) {

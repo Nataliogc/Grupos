@@ -184,7 +184,6 @@ var App = function App() {
         }]
       },
       system: {
-        pin: "1234",
         geminiModel: "gemini-2.4-flash",
         iaStatus: "Online",
         commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
@@ -300,6 +299,7 @@ var App = function App() {
               system: _objectSpread({}, config.system)
             });
             delete dataToSave.system.users;
+            delete dataToSave.system.pin;
             if (dataToSave.guadiana) {
               delete dataToSave.guadiana.clauses;
               delete dataToSave.guadiana.confirmationClauses;
@@ -1037,20 +1037,12 @@ var App = function App() {
   }, "La clave se guarda encriptada en tu instancia privada de Firestore."))))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-6"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "p-6 bg-white border border-slate-200 rounded-3xl shadow-sm"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2"
-  }, "PIN de Acceso"), /*#__PURE__*/React.createElement("input", {
-    type: "password",
-    value: config.system.pin,
-    onChange: function onChange(e) {
-      return handleChange('system', 'pin', e.target.value);
-    },
-    maxLength: "4",
-    className: "w-full text-2xl font-bold tracking-[0.5em] text-center border-b border-slate-100 py-2 outline-none focus:border-[#2d5a43] transition-all"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-slate-400 mt-2 italic text-center text-wrap"
-  }, "Este PIN se usar\xE1 en la pantalla de login unificada.")), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col justify-center"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+  }, "Autenticaci\xF3n de Acceso"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-600 leading-relaxed"
+  }, "El PIN compartido ha sido retirado. Todos los accesos se gestionan exclusivamente mediante cuentas individuales en Firebase Authentication.")), /*#__PURE__*/React.createElement("div", {
     className: "p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1"

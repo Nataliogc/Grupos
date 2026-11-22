@@ -2,38 +2,122 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function identified() {
-      return request.auth != null && request.auth.token.email.lower() != 'demo@hotel.com';
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() != 'demo@hotel.com';
+    }
+    function memberRef() {
+      return /databases/$(database)/documents/access_members/$(request.auth.uid);
+    }
+    function memberExists() {
+      return identified() && exists(memberRef());
     }
     function member() {
-      return get(/databases/$(database)/documents/access_members/$(request.auth.uid)).data;
+      return get(memberRef()).data;
     }
     function permitted(roles) {
-      return identified() && member().active == true && member().role in roles;
+      return memberExists() && member().active == true && member().role in roles;
     }
+    function staff() {
+      return permitted(['admin', 'direction', 'reception', 'commercial']);
+    }
+    function managesAccounts() {
+      return permitted(['admin', 'direction']);
+    }
+    function canConvertBudget() {
+      return staff() && member().get('canConvertBudget', false) == true;
+    }
+    function docHotel(data) {
+      let raw = data.get('Hotel_Asignado', data.get('Hotel', ''));
+      return raw is string && raw.matches('(?i).*guadiana.*') ? 'guadiana'
+        : (raw is string && raw.matches('(?i).*cumbria.*') ? 'cumbria' : '');
+    }
+    function hasHotel(hotelKey) {
+      return hotelKey != ''
+        && member().get('hotels', []) is list
+        && hotelKey in member().hotels;
+    }
+    function canAccessHotel(data) {
+      let h = docHotel(data);
+      return h != '' ? hasHotel(h) : permitted(['admin']);
+    }
+
     match /access_members/{uid} {
       allow get: if identified() && request.auth.uid == uid;
+      allow list, write: if false;
     }
+
     match /groups/{id} {
-      function staff() { return permitted(['admin','direction','commercial']); }
-      function managesAccounts() { return permitted(['admin','direction']); }
       function quote(data) {
         return data.get('Reserva', '') is string && data.get('Reserva', '').matches('(?i)^PRES-.*');
       }
-      // Commercial staff can price drafts. A live receivable and its payment
-      // history must be registered by management, accounting or the server.
-      function financialFields() {
-        return ['Reserva','Hotel_Asignado','Com_Total','Total','total','Importe(*)','Com_Pagado','PaymentPlan_JSON'];
+      function hasQuoteOrigin(data) {
+        let o1 = data.get('Presupuesto_Origen', '');
+        let o2 = data.get('sourceQuoteId', '');
+        return (o1 is string && o1.matches('(?i)^PRES-.*'))
+          || (o2 is string && o2.matches('(?i)^PRES-.*'));
       }
-      allow read: if staff();
-      allow create: if managesAccounts() || (staff() && quote(request.resource.data));
-      allow update: if managesAccounts() || (staff() && (
-        (quote(resource.data) && quote(request.resource.data)) ||
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(financialFields())));
-      allow delete: if managesAccounts() || (staff() && quote(resource.data));
+      function financialFields() {
+        return [
+          'Reserva', 'Hotel_Asignado', 'Hotel',
+          'Com_Total', 'Total', 'total', 'Importe(*)',
+          'Com_Pagado', 'Com_Pendiente', 'PaymentPlan_JSON',
+          'PayGold_UltimoPedido', 'PayGold_UltimoImporte', 'PayGold_UltimoEstado',
+          'PayGold_UltimaAutorizacion', 'PayGold_FechaCobro', 'Enlace_TPV',
+          'depositApplied', 'agencyDepositUsed'
+        ];
+      }
+      function touchesFinancial() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny(financialFields());
+      }
+      function isQuoteConversionCreate() {
+        return !quote(request.resource.data) && hasQuoteOrigin(request.resource.data);
+      }
+      function isQuoteConversionUpdate() {
+        return quote(resource.data) && (
+          !quote(request.resource.data)
+          || (resource.data.get('convertedToReservation', false) != true
+              && request.resource.data.get('convertedToReservation', false) == true)
+        );
+      }
+
+      allow read: if staff() && canAccessHotel(resource.data);
+
+      allow create: if staff() && canAccessHotel(request.resource.data) && (
+        (isQuoteConversionCreate() && canConvertBudget())
+        || (!isQuoteConversionCreate() && managesAccounts())
+        || (permitted(['admin', 'direction', 'commercial']) && quote(request.resource.data))
+      );
+
+      allow update: if staff()
+        && canAccessHotel(resource.data)
+        && canAccessHotel(request.resource.data)
+        && (
+          (isQuoteConversionUpdate() && canConvertBudget())
+          || (!isQuoteConversionUpdate() && managesAccounts())
+          || (!isQuoteConversionUpdate() && permitted(['commercial']) && quote(resource.data) && quote(request.resource.data))
+          || (!isQuoteConversionUpdate() && !touchesFinancial())
+        );
+
+      allow delete: if staff() && canAccessHotel(resource.data) && (
+        managesAccounts()
+        || (permitted(['commercial']) && quote(resource.data))
+      );
     }
+
+    match /agency_deposits/{agencyId} {
+      allow read: if staff();
+      allow write: if managesAccounts();
+      match /movements/{movementId} {
+        allow read: if staff();
+        allow write: if managesAccounts();
+      }
+    }
+
     match /settings/{id} {
-      allow read: if permitted(['admin','direction','commercial']) && id != 'users';
-      allow write: if permitted(['admin','direction']) && id != 'users';
+      allow read: if staff() && id != 'users';
+      allow write: if (managesAccounts() && id != 'users')
+        || (staff() && id == 'pinned_modules_' + request.auth.uid.lower());
     }
   }
 }

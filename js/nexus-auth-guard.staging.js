@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  const roleNames = { admin: 'Administrador', direction: 'Dirección', commercial: 'Comercial' };
+  const roleNames = { admin: 'Administrador', direction: 'Dirección', reception: 'Recepción', commercial: 'Comercial' };
   function deny(message) {
     window.nexusVerifiedMember = null;
     sessionStorage.removeItem('nexus_session');
@@ -26,6 +26,9 @@
     const run = ++sequence;
     if (!user) { deny('Inicia sesión con Firebase'); return; }
     try {
+      if (typeof user.getIdToken === 'function') {
+        await user.getIdToken(true);
+      }
       const snapshot = await window.db.collection('access_members').doc(user.uid).get({source: 'server'});
       if (run !== sequence) return;
       const access = snapshot.exists ? snapshot.data() : null;
@@ -36,7 +39,10 @@
       sessionStorage.setItem('nexus_session', JSON.stringify({
         uid: user.uid, id: user.uid, email: user.email,
         name: access.name || user.displayName || user.email,
-        role: roleNames[access.role], loginTime: Date.now()
+        role: roleNames[access.role], roleKey: access.role,
+        hotels: Array.isArray(access.hotels) ? access.hotels : [],
+        canConvertBudget: access.canConvertBudget === true,
+        loginTime: Date.now()
       }));
       window.nexusVerifiedMember = JSON.parse(sessionStorage.getItem('nexus_session'));
       localStorage.removeItem('nexus_user');

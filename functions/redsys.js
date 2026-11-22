@@ -177,7 +177,9 @@ function decodeAndVerifyResponse(responseBody, secretKeyBase64) {
         const expectedSig = hmac.digest('base64');
 
         const norm = s => String(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        signatureValid = (receivedSig === expectedSig) || (norm(receivedSig) === norm(expectedSig));
+        const recBuf = Buffer.from(norm(receivedSig), 'utf8');
+        const expBuf = Buffer.from(norm(expectedSig), 'utf8');
+        signatureValid = recBuf.length === expBuf.length && crypto.timingSafeEqual(recBuf, expBuf);
     }
 
     if (!signatureValid) throw new Error('Firma bancaria incorrecta.');

@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.107";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "22/11/2026 21:17";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.108";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "22/11/2026 22:47";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -353,9 +353,11 @@
             ['https://nataliogc.github.io/menus-cocteles/','Menús Cócteles','martini','rose'],
             ['Configuracion.html','Configuración','settings','slate']
         ];
+        const isAdminNav = currentUser && String(currentUser.role || '').toLowerCase() === 'administrador';
         const settingsSections = [
             ['guadiana', 'Sercotel Guadiana'], ['cumbria', 'Cumbria Spa&Hotel'],
-            ['system', 'Sistema e IA'], ['users', 'Usuarios y Accesos'],
+            ['system', 'Sistema e IA'],
+            ...(isAdminNav ? [['users', 'Usuarios y Accesos']] : []),
             ['services', 'Catálogo de Servicios'], ['clauses', 'Textos Legales']
         ];
         const settingsLink = ([tab, label]) =>
@@ -390,8 +392,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.107 (22/11/2026 21:17)">
-                                    V2.5.107
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.108 (22/11/2026 22:47)">
+                                    V2.5.108
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -878,8 +880,8 @@
                 showFeedback("error", "Por favor, introduce tu contraseña actual.");
                 return;
             }
-            if (!newVal || newVal.length < 4) {
-                showFeedback("error", "La nueva contraseña debe tener al menos 4 caracteres.");
+            if (!newVal || newVal.length < 6) {
+                showFeedback("error", "La nueva contraseña debe tener al menos 6 caracteres.");
                 return;
             }
             if (newVal !== confirmVal) {
@@ -891,84 +893,19 @@
             btnText.textContent = "Verificando...";
 
             try {
-                if (!window.db || typeof window.db.collection !== "function") {
-                    throw new Error("No hay conexión con la base de datos.");
+                if (!window.firebase || typeof firebase.auth !== "function" || !firebase.auth().currentUser) {
+                    throw new Error("No hay sesión activa en Firebase Authentication.");
                 }
-
-                var docRef = window.db.collection("settings").doc("main");
-                var doc = await docRef.get();
-                var users = [];
-                var data = {};
-
-                if (doc.exists) {
-                    data = doc.data() || {};
-                    if (data.system && Array.isArray(data.system.users)) {
-                        users = [...data.system.users];
-                    }
+                var fbUser = firebase.auth().currentUser;
+                var emailForAuth = fbUser.email || user.email || "";
+                if (!emailForAuth) {
+                    throw new Error("Tu cuenta no tiene correo electrónico asociado.");
                 }
+                var credential = firebase.auth.EmailAuthProvider.credential(emailForAuth, currentVal);
+                await fbUser.reauthenticateWithCredential(credential);
+                await fbUser.updatePassword(newVal);
 
-                // Si no hay usuarios en Firestore, inicializar con los perfiles predeterminados
-                if (users.length === 0) {
-                    users = [
-                        { email: "jrecepcion@hotelguadiana.es", pass: "1234", name: "Diana", role: "Comercial" },
-                        { email: "ssanchez@hotelguadiana.es", pass: "1234", name: "Sergio", role: "Dirección" },
-                        { email: "osanchez@hotelguadiana.es", pass: "1234", name: "Oscar", role: "Dirección" },
-                        { email: "comunicaciones@hotelguadiana.es", pass: "1234", name: "Natalio", role: "Administrador" }
-                    ];
-                }
-
-                var myEmail = (user.email || "").toLowerCase();
-                var myName = (user.name || "").toLowerCase();
-                var myId = (user.id || "").toLowerCase();
-
-                var userIdx = users.findIndex(function(u) {
-                    var uEmail = (u.email || "").toLowerCase();
-                    var uName = (u.name || "").toLowerCase();
-                    var uId = (u.id || "").toLowerCase();
-                    return (myEmail && uEmail === myEmail) || (myName && uName === myName) || (myId && uId === myId);
-                });
-
-                if (userIdx < 0) {
-                    userIdx = users.length;
-                    users.push({
-                        id: user.id || myName,
-                        name: user.name,
-                        email: user.email,
-                        role: user.role || "Comercial",
-                        pass: "1234",
-                        active: true
-                    });
-                }
-
-                var existingPass = String(users[userIdx].pass || "1234");
-                if (existingPass !== currentVal) {
-                    submitBtn.disabled = false;
-                    btnText.textContent = "Actualizar Contraseña";
-                    showFeedback("error", "La contraseña actual no es correcta.");
-                    return;
-                }
-
-                // Actualizar contraseña
-                users[userIdx].pass = newVal;
-                users[userIdx].active = true;
-                users[userIdx].revoked = false;
-
-                // Guardar en Firestore
-                await docRef.set({
-                    ...data,
-                    system: {
-                        ...(data.system || {}),
-                        users: users
-                    }
-                }, { merge: true });
-
-                // Actualizar sesión local
-                user.pass = newVal;
-                try {
-                    localStorage.setItem('nexus_user', JSON.stringify(user));
-                } catch(e) {}
-
-                showFeedback("success", "¡Contraseña actualizada con éxito!");
+                showFeedback("success", "¡Contraseña actualizada con éxito en Firebase Authentication!");
                 btnText.textContent = "¡Guardado!";
                 setTimeout(function() {
                     closeModal();
@@ -978,7 +915,12 @@
                 console.error("[Navigation] Error actualizando contraseña:", err);
                 submitBtn.disabled = false;
                 btnText.textContent = "Actualizar Contraseña";
-                showFeedback("error", "Error al guardar: " + (err.message || "Problema de conexión"));
+                var msg = (err && (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential"))
+                    ? "La contraseña actual no es correcta."
+                    : (err && err.code === "auth/weak-password")
+                        ? "La nueva contraseña es demasiado débil (mínimo 6 caracteres)."
+                        : ("Error al actualizar: " + (err && err.message ? err.message : "Problema de conexión"));
+                showFeedback("error", msg);
             }
         });
     };

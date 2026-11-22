@@ -127,7 +127,6 @@
 ]
                 },
                 system: {
-                    pin: "1234",
                     geminiModel: "gemini-2.4-flash",
                     iaStatus: "Online",
                     commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
@@ -208,6 +207,7 @@
                 try {
                     const dataToSave = { ...config, system: { ...config.system } };
                     delete dataToSave.system.users;
+                    delete dataToSave.system.pin;
                     if (dataToSave.guadiana) { delete dataToSave.guadiana.clauses; delete dataToSave.guadiana.confirmationClauses; }
                     if (dataToSave.cumbria) { delete dataToSave.cumbria.clauses; delete dataToSave.cumbria.confirmationClauses; }
                     await db.collection("settings").doc("main").set(dataToSave);
@@ -794,10 +794,9 @@
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-6">
-                                            <div className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">PIN de Acceso</label>
-                                                <input type="password" value={config.system.pin} onChange={(e) => handleChange('system', 'pin', e.target.value)} maxLength="4" className="w-full text-2xl font-bold tracking-[0.5em] text-center border-b border-slate-100 py-2 outline-none focus:border-[#2d5a43] transition-all" />
-                                                <p className="text-[9px] text-slate-400 mt-2 italic text-center text-wrap">Este PIN se usará en la pantalla de login unificada.</p>
+                                            <div className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Autenticación de Acceso</p>
+                                                <p className="text-xs text-slate-600 leading-relaxed">El PIN compartido ha sido retirado. Todos los accesos se gestionan exclusivamente mediante cuentas individuales en Firebase Authentication.</p>
                                             </div>
                                             <div className="p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center">
                                                 <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Backup Cloud</p>
