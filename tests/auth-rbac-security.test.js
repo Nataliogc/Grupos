@@ -277,3 +277,28 @@ test('Fase 2: Gemini client never reads geminiApiKey or calls Google AI directly
   assert.match(capturedUrl, /analizarGruposIA/);
   delete globalThis.firebase;
 });
+
+test('Functions manifest omits syncGroupMail and MAIL_IMAP_CONFIG unless MAIL_IMAP_ENABLED=true', () => {
+  const { execFileSync } = require('node:child_process');
+  const inspect = (envExtra) => JSON.parse(execFileSync(process.execPath, ['-e', `
+    const params = require('firebase-functions/params');
+    const fn = require('./index.js');
+    console.log(JSON.stringify({
+      exports: Object.keys(fn).sort(),
+      declaredParams: params.declaredParams.map(p => p.name).sort()
+    }));
+  `], { cwd: path.join(root, 'functions'), env: { ...process.env, ...envExtra }, encoding: 'utf8' }));
+
+  const disabled = inspect({ MAIL_IMAP_ENABLED: 'false' });
+  assert.equal(disabled.exports.length, 13);
+  assert.ok(!disabled.exports.includes('syncGroupMail'));
+  assert.ok(!disabled.declaredParams.includes('MAIL_IMAP_CONFIG'));
+  for (const name of ['nexusListUsers', 'nexusCreateUser', 'nexusLinkUser', 'nexusUpdateUser', 'nexusResetUser', 'analizarGruposIA', 'mailInbox', 'mailDetail', 'mailUpdate', 'createPayGold', 'redsysWebhook', 'internalPaymentDispatch', 'scheduledRetryWorker']) {
+    assert.ok(disabled.exports.includes(name), `Missing export ${name}`);
+  }
+
+  const enabled = inspect({ MAIL_IMAP_ENABLED: 'true' });
+  assert.equal(enabled.exports.length, 14);
+  assert.ok(enabled.exports.includes('syncGroupMail'));
+  assert.ok(enabled.declaredParams.includes('MAIL_IMAP_CONFIG'));
+});

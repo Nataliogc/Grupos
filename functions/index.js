@@ -14,7 +14,11 @@ const redsysFunctions = require('./redsys-functions');
 exports.mailInbox = mail.mailInbox;
 exports.mailDetail = mail.mailDetail;
 exports.mailUpdate = mail.mailUpdate;
-exports.syncGroupMail = require('./mail-imap').syncGroupMail;
+// Cargar syncGroupMail solo cuando la sincronización IMAP esté explícitamente habilitada,
+// evitando registrar defineSecret('MAIL_IMAP_CONFIG') en despliegues selectivos sin IMAP.
+if (String(process.env.MAIL_IMAP_ENABLED || '').toLowerCase() === 'true') {
+  exports.syncGroupMail = require('./mail-imap').syncGroupMail;
+}
 
 // Pasarela de Pagos Redsys PayGold (Cumbria Spa & Hotel y servicios autorizados)
 exports.createPayGold = redsysFunctions.createPayGold;
