@@ -239,6 +239,15 @@ test('Fase 1: shared PIN removed from Configuracion and plaintext password stora
   assert.match(usuariosHtml, /m\?\.role!=='admin'/);
   assert.match(usuariosHtml, /value="reception"/);
   assert.match(usuariosHtml, /canConvertBudget/);
+
+  // Verify inline <script> blocks in Usuarios.html and index.html parse cleanly without SyntaxError
+  for (const [name, html] of [['Usuarios.html', usuariosHtml], ['index.html', indexHtml]]) {
+    const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+    assert.ok(inlineScripts.length > 0, `${name} should contain inline scripts`);
+    for (const match of inlineScripts) {
+      assert.doesNotThrow(() => new Function(match[1]), `SyntaxError in inline script of ${name}`);
+    }
+  }
 });
 
 test('Fase 2: Gemini client never reads geminiApiKey or calls Google AI directly; Configuracion strips geminiApiKey', async (t) => {

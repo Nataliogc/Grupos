@@ -89,7 +89,7 @@ async function refresh(){
       const canConvertBudget=confirm('¿Permitir convertir presupuestos en reserva definitiva?');
       if(!confirm('¿Vincular '+u.email+' como '+role+'?'))return;
       try{await api('nexusLinkUser',{email:u.email,name,role,hotels,canConvertBudget});await refresh();message('Cuenta existente vinculada sin duplicarla.');}catch(e){error(e)}
-    },'primary')}
+    },'primary'));}
     if(u.linked)wrap.append(button('Editar',async()=>{
       const name=prompt('Nombre del empleado',u.name);if(name===null)return;
       const role=prompt('Rol: admin, direction, reception o commercial',u.role);if(role===null)return;
