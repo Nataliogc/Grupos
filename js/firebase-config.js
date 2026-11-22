@@ -5,7 +5,7 @@
 // (https://console.cloud.google.com/apis/credentials)
 
 window.firebaseConfig = {
-    apiKey: "AIzaSyAn_A9mfH3TCgC-yWGPyRN1sAHhsWWEKis",
+    apiKey: "AIzaSyCqJsgkASst482SmtLV8x70qajtsay6PGY",
     authDomain: "gest-grupos-hotel.firebaseapp.com",
     projectId: "gest-grupos-hotel",
     storageBucket: "gest-grupos-hotel.firebasestorage.app",
