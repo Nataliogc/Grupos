@@ -653,3 +653,192 @@ test('guardar horas en programacion conserva las horas aunque exista ServiceOrde
     delete global.window;
   }
 });
+
+test('buildMesachefInternalNote y extractServiceObservaciones manejan observaciones y notas de sistema', () => {
+  const summary = '[Nexus Groups] Ref: 79257 | Programación de Desayuno | Pax: 70';
+  assert.equal(service.buildMesachefInternalNote(summary, ''), summary);
+  assert.equal(service.buildMesachefInternalNote(summary, '   '), summary);
+  assert.equal(service.buildMesachefInternalNote('', 'Solo nota'), 'Solo nota');
+  assert.equal(
+    service.buildMesachefInternalNote(summary, '  2 celíacos sin gluten  '),
+    '2 celíacos sin gluten\n' + summary
+  );
+  assert.equal(
+    service.buildMesachefInternalNote(summary, 'Línea 1\nLínea 2'),
+    'Línea 1\nLínea 2\n' + summary
+  );
+
+  // Extracción en distintos formatos
+  assert.equal(service.extractServiceObservaciones({ notas: { interna: summary } }), '');
+  assert.equal(
+    service.extractServiceObservaciones({ notas: { interna: '2 celíacos\n' + summary } }),
+    '2 celíacos'
+  );
+  assert.equal(
+    service.extractServiceObservaciones({ notas: { interna: 'Línea 1\nLínea 2\n' + summary } }),
+    'Línea 1\nLínea 2'
+  );
+  assert.equal(
+    service.extractServiceObservaciones({ notas: { interna: 'Montaje en U | ' + summary } }),
+    'Montaje en U'
+  );
+  assert.equal(
+    service.extractServiceObservaciones({ notas: { interna: 'Nota directa editada en sala' } }),
+    'Nota directa editada en sala'
+  );
+  assert.equal(
+    service.extractServiceObservaciones({
+      notas: { interna: 'Ver [Nexus Groups] antiguo\nSegunda línea\n' + summary }
+    }),
+    'Ver [Nexus Groups] antiguo\nSegunda línea'
+  );
+  assert.equal(
+    service.extractServiceObservaciones({ notas: { interna: '' }, nexusObservaciones: 'Respaldo obs' }),
+    'Respaldo obs'
+  );
+  assert.equal(service.extractServiceObservaciones(null), '');
+});
+
+test('prepareSalonDocuments antepone observaciones por servicio en notas.interna y conserva servicios sin observaciones', () => {
+  const sched = [
+    { fecha: '2026-11-27', jornada: 'cena', pax: 68, hora: '21:15', salon: 'Eventos Restaurante', observaciones: '  1 celíaco y 2 vegetarianos  ' },
+    { fecha: '2026-11-28', jornada: 'desayuno', pax: 70, hora: '08:00', salon: 'Eventos Restaurante', observaciones: '' }
+  ];
+  const record = {
+    ...group,
+    Reserva: '79257',
+    Entrada: '2026-11-27',
+    Salida: '2026-11-28',
+    'Régimen': 'MP',
+    RoomingList_JSON: JSON.stringify([room('2026-11-27', 35, 2, 'MP')]),
+    MealSchedule_JSON: JSON.stringify(sched)
+  };
+  const parsedSched = service.getMealSchedule(record);
+  assert.equal(parsedSched[0].observaciones, '1 celíaco y 2 vegetarianos');
+  assert.equal(parsedSched[1].observaciones, '');
+
+  const docs = service.prepareSalonDocuments(record);
+  assert.equal(docs.length, 2);
+
+  const cenaDoc = docs.find(d => d.detalles.jornada === 'cena');
+  const desDoc = docs.find(d => d.detalles.jornada === 'desayuno');
+
+  assert.equal(cenaDoc.nexusObservaciones, '1 celíaco y 2 vegetarianos');
+  assert.ok(cenaDoc.notas.interna.startsWith('1 celíaco y 2 vegetarianos\n[Nexus Groups] Ref: 79257'));
+
+  assert.equal(desDoc.nexusObservaciones, '');
+  assert.ok(desDoc.notas.interna.startsWith('[Nexus Groups] Ref: 79257'));
+  assert.equal(desDoc.notas.interna.startsWith('\n'), false);
+});
+
+test('syncGroupToMesachef y getActualMesaChefServices sincronizan, actualizan, borran y preservan observaciones por servicio', async () => {
+  const data = new Map();
+  const ref = (collection, id) => ({ key: collection + '/' + id });
+  global.window = {
+    db: {
+      collection: collection => ({
+        doc: id => ref(collection, id),
+        where: (field, op, value) => ({
+          get: async () => {
+            const docs = [...data]
+              .filter(([k, v]) => k.startsWith(collection + '/') && v[field] === value)
+              .map(([k, v]) => ({ id: k.split('/')[1], ref: { key: k }, data: () => v }));
+            return { forEach: fn => docs.forEach(fn) };
+          }
+        })
+      }),
+      batch: () => {
+        const writes = [];
+        return {
+          set: (r, v) => writes.push([r, v]),
+          update: (r, v) => writes.push([r, v]),
+          commit: async () => {
+            writes.forEach(([r, v]) => data.set(r.key, { ...data.get(r.key), ...v }));
+          }
+        };
+      }
+    }
+  };
+  try {
+    const baseGroup = {
+      ...group,
+      Reserva: '79257',
+      Entrada: '2026-11-27',
+      Salida: '2026-11-28',
+      Hotel_Asignado: 'CUMBRIA SPA&HOTEL',
+      'Nombre del Grupo': 'GRUPO MONTEROS DE JANDULA',
+      'Régimen': 'MP',
+      Com_Estado_Interno: 'TENTATIVA',
+      RoomingList_JSON: JSON.stringify([room('2026-11-27', 35, 2, 'MP')])
+    };
+
+    // 1. Guardar observaciones distintas por servicio
+    const initialRes = await service.syncGroupToMesachef({
+      ...baseGroup,
+      MealSchedule_JSON: JSON.stringify([
+        { fecha: '2026-11-27', jornada: 'cena', pax: 68, hora: '21:15', salon: 'Eventos Restaurante', observaciones: 'Mesa presidencial para 6' },
+        { fecha: '2026-11-28', jornada: 'desayuno', pax: 70, hora: '08:00', salon: 'Eventos Restaurante', observaciones: '' }
+      ])
+    }, { explicitScheduleSave: true });
+    assert.equal(initialRes.success, true);
+
+    const cenaKey = 'reservas_salones/nexus_79257_2026-11-27_cena';
+    const desKey = 'reservas_salones/nexus_79257_2026-11-28_desayuno';
+    assert.equal(data.get(cenaKey).nexusObservaciones, 'Mesa presidencial para 6');
+    assert.ok(data.get(cenaKey).notas.interna.startsWith('Mesa presidencial para 6\n[Nexus Groups]'));
+    assert.equal(data.get(desKey).nexusObservaciones, '');
+    assert.ok(data.get(desKey).notas.interna.startsWith('[Nexus Groups]'));
+
+    // 2. getActualMesaChefServices devuelve las observaciones exactas (sin propiedad si está vacía)
+    const pulled1 = await service.getActualMesaChefServices('79257');
+    assert.equal(pulled1.length, 2);
+    const pulledCena1 = pulled1.find(s => s.jornada === 'cena');
+    const pulledDes1 = pulled1.find(s => s.jornada === 'desayuno');
+    assert.equal(pulledCena1.observaciones, 'Mesa presidencial para 6');
+    assert.equal(Object.prototype.hasOwnProperty.call(pulledDes1, 'observaciones'), false);
+
+    // 3. Editar SOLO la observación en uno de los servicios dispara escritura real en Firestore
+    const editedOnlyObs = pulled1.map(r =>
+      r.jornada === 'desayuno' ? { ...r, observaciones: 'Desayuno temprano con café preparado' } : r
+    );
+    const editRes = await service.syncGroupToMesachef({
+      ...baseGroup,
+      MealSchedule_JSON: JSON.stringify(editedOnlyObs)
+    }, { explicitScheduleSave: true });
+    assert.equal(editRes.success, true);
+    assert.equal(Boolean(editRes.skipped), false);
+    assert.equal(data.get(desKey).nexusObservaciones, 'Desayuno temprano con café preparado');
+    assert.ok(data.get(desKey).notas.interna.startsWith('Desayuno temprano con café preparado\n[Nexus Groups]'));
+
+    // 4. Borrar la observación de la cena limpia notas.interna y nexusObservaciones
+    const clearedCena = editedOnlyObs.map(r =>
+      r.jornada === 'cena' ? { ...r, observaciones: '' } : r
+    );
+    const clearRes = await service.syncGroupToMesachef({
+      ...baseGroup,
+      MealSchedule_JSON: JSON.stringify(clearedCena)
+    }, { explicitScheduleSave: true });
+    assert.equal(clearRes.success, true);
+    assert.equal(Boolean(clearRes.skipped), false);
+    assert.equal(data.get(cenaKey).nexusObservaciones, '');
+    assert.ok(data.get(cenaKey).notas.interna.startsWith('[Nexus Groups]'));
+
+    const pulledAfterClear = await service.getActualMesaChefServices('79257');
+    assert.equal(Object.prototype.hasOwnProperty.call(pulledAfterClear.find(s => s.jornada === 'cena'), 'observaciones'), false);
+    assert.equal(pulledAfterClear.find(s => s.jornada === 'desayuno').observaciones, 'Desayuno temprano con café preparado');
+
+    // 5. Sincronización en segundo plano con preserveExistingSchedule preserva notas.interna y nexusObservaciones
+    const bgRes = await service.syncGroupToMesachef({
+      ...baseGroup,
+      Com_Estado_Interno: 'CONFIRMADO',
+      MealSchedule_JSON: JSON.stringify(pulledAfterClear)
+    }, { preserveExistingSchedule: true });
+    assert.equal(bgRes.success, true);
+    assert.equal(bgRes.preservedSchedule, true);
+    assert.equal(data.get(desKey).estado, 'confirmada');
+    assert.equal(data.get(desKey).nexusObservaciones, 'Desayuno temprano con café preparado');
+    assert.ok(data.get(desKey).notas.interna.startsWith('Desayuno temprano con café preparado\n[Nexus Groups]'));
+  } finally {
+    delete global.window;
+  }
+});
