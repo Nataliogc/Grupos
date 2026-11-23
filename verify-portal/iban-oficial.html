@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.cloudfunctions.net https://*.a.run.app; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self';">
+  <title>IBAN Oficial — Nexus Verify</title>
+  <style>
+    :root{font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14262b;background:#f4f7f8}
+    *{box-sizing:border-box}body{margin:0}
+    header{background:#102a25;color:#fff;padding:18px max(20px,5vw);display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    header a{color:#d7efe7;text-decoration:none;font-weight:700;border:1px solid #2e6657;padding:8px 14px;border-radius:10px}
+    main{max-width:860px;margin:28px auto;padding:0 18px 48px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:#fff;border:1px solid #d9e3e7;border-radius:16px;padding:22px;box-shadow:0 4px 16px #102a250d}
+    .iban{font:800 16px ui-monospace,monospace;letter-spacing:.06em;color:#0b4d3e;background:#edf7f3;padding:10px 12px;border-radius:10px;margin:10px 0}
+    .muted{color:#5e737b;font-size:13px}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>NEXUS VERIFY · IBAN OFICIAL</strong><div class="muted" style="color:#c7e5dc">Consulta independiente de cuentas bancarias autorizadas</div></div>
+    <a href="index.html">Verificar código o PDF</a>
+  </header>
+  <main>
+    <h1>Cuentas bancarias oficiales para transferencias</h1>
+    <p class="muted">Los hoteles nunca solicitan cambios de cuenta bancaria por correo electrónico. Antes de emitir una transferencia, confirme que el beneficiario y el IBAN coinciden exactamente con los publicados aquí.</p>
+    <div id="officialStatus" class="muted" style="margin:14px 0">Cargando cuentas oficiales desde el servidor…</div>
+    <div id="hotelsGrid" class="grid" data-official-ibans="true"></div>
+  </main>
+  <script src="verify.js"></script>
+</body>
+</html>

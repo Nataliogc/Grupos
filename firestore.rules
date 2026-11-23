@@ -172,5 +172,13 @@ service cloud.firestore {
         || (staff() && id == 'pinned_modules_' + request.auth.uid.lower())
       );
     }
+
+    // Nexus Verify: colecciones exclusivamente gestionadas por Cloud Functions (Admin SDK).
+    match /verify_documents/{tokenHash} {
+      allow read, write: if false;
+    }
+    match /verify_audit_logs/{eventId} {
+      allow read, write: if false;
+    }
   }
 }

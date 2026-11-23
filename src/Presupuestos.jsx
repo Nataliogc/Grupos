@@ -7608,7 +7608,7 @@ ${emailContent}`;
                   </div>
                 </div>
 
-                <div className="mt-6 flex justify-end no-print">
+                <div className="mt-6 flex flex-wrap justify-end gap-3 no-print">
                   <button onClick={() => {
                       const originalTitle = document.title;
                       const reserva = g.Reserva || '';
@@ -7616,8 +7616,38 @@ ${emailContent}`;
                       document.title = (reserva && grupo) ? `${reserva} - ${grupo}` : (grupo || reserva || 'Propuesta');
                       window.print();
                       setTimeout(() => { document.title = originalTitle; }, 500);
-                    }} className="bg-slate-900 hover:bg-black text-white px-8 py-3 rounded-2xl font-black transition-all shadow-xl flex items-center gap-3">
-                    <i className="fas fa-print"></i> IMPRIMIR PDF
+                    }} className="bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-md flex items-center gap-2 text-xs">
+                    <i className="fas fa-print"></i> IMPRIMIR BORRADOR (INTERNO)
+                  </button>
+                  <button onClick={async () => {
+                      if (!window.NexusVerifyService || typeof window.NexusVerifyService.issueAndDownloadVerifiedPdf !== 'function') {
+                        alert('Nexus Verify no está disponible en esta sesión.');
+                        return;
+                      }
+                      const docId = g.id || g._docId || '';
+                      if (!docId) {
+                        alert('Guarda el presupuesto antes de emitir el PDF verificado.');
+                        return;
+                      }
+                      try {
+                        const stayDates = [g.Entrada || g['Fecha de Entrada'] || '', g.Salida || g['Fecha de Salida'] || ''].filter(Boolean).join(' a ');
+                        const result = await window.NexusVerifyService.issueAndDownloadVerifiedPdf({
+                          groupDocId: docId,
+                          docType: 'budget',
+                          docSummary: {
+                            docType: 'budget',
+                            reference: g.Reserva || docId,
+                            groupName: g['Nombre del Grupo'] || 'Grupo',
+                            stayDates: stayDates || '-'
+                          }
+                        });
+                        alert(`PDF definitivo emitido y sellado con Nexus Verify.\n\nCódigo: ${result.verification.displayCode}\nSHA-256: ${result.pdfSha256.slice(0, 16)}…`);
+                      } catch (err) {
+                        console.error('Nexus Verify emit budget error:', err);
+                        alert('No se pudo emitir el PDF verificado: ' + (err && err.message ? err.message : 'Servicio no activado en producción todavía.'));
+                      }
+                    }} className="bg-emerald-700 hover:bg-emerald-800 text-white px-8 py-3 rounded-2xl font-black transition-all shadow-xl flex items-center gap-3">
+                    <i className="fas fa-shield-alt"></i> EMITIR PDF VERIFICADO
                   </button>
                 </div>
               </div>

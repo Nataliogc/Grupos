@@ -525,11 +525,17 @@
             <!-- Separador -->
             <div class="flex-1"></div>
 
-            <!-- Imprimir PDF -->
+            <!-- Imprimir Borrador (interno) -->
             <button onclick="printDoc()"
-                class="flex items-center gap-2 px-5 py-2 rounded-xl bg-white text-slate-900 text-[10px] font-black uppercase tracking-wider shadow-lg hover:bg-slate-100 transition-all">
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-800 border border-slate-200 text-[10px] font-bold uppercase tracking-wider shadow-sm hover:bg-slate-100 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                Imprimir / PDF
+                Borrador / Imprimir
+            </button>
+            <!-- Emitir PDF Verificado (Nexus Verify - Opción A) -->
+            <button onclick="emitVerifiedProformaPdf()"
+                class="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-black uppercase tracking-wider shadow-lg transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                PDF Verificado
             </button>
             <select id="print-lang-select"
                 class="px-3 py-2 rounded-xl bg-white/10 border border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
@@ -1053,10 +1059,12 @@
     <script src="js/utils.js"></script>
     <script src="js/gemini.js"></script>
     <script src="js/vendor/firebase-auth-9.22.1-compat.js"></script>
+    <script src="js/vendor/firebase-functions-9.22.1-compat.js"></script>
   <script src="js/firebase-init.js?v=2-persistent-cache"></script>
   <style>html:not(.nexus-auth-verified) body { visibility: hidden }</style>
   <script src="js/nexus-auth-guard.staging.js"></script>
     <script src="js/services/budgetStatus.js"></script>
+    <script src="js/services/nexusVerifyService.js"></script>
   <script src="js/navigation.js?v=2-shared-listener"></script>
 
     <script>
@@ -3339,6 +3347,52 @@
             } catch (e) {
                 console.error('translateDocumentOnly error:', e);
                 alert('No se pudo traducir el documento.');
+            }
+        }
+
+        async function emitVerifiedProformaPdf() {
+            if (!window.NexusVerifyService || typeof window.NexusVerifyService.issueAndDownloadVerifiedPdf !== 'function') {
+                alert('Nexus Verify no está disponible en esta sesión.');
+                return;
+            }
+            if (typeof validateProformaAgainstSource === 'function' && !validateProformaAgainstSource({ block: true })) {
+                return;
+            }
+            let groupData = {};
+            try {
+                groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
+            } catch (_) {}
+            const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
+            const docId = groupData.id || recData.id || '';
+            if (!docId) {
+                alert('No se ha encontrado el identificador del grupo/proforma en Firestore.');
+                return;
+            }
+            const ref = groupData['Reserva'] || recData['Reserva'] || docId;
+            const groupName = groupData['Nombre del Grupo'] || recData['Nombre del Grupo'] || 'Grupo';
+            const stayDates = [groupData['Entrada'] || recData['Entrada'] || '', groupData['Salida'] || recData['Salida'] || ''].filter(Boolean).join(' a ');
+            const summaryItems = Array.isArray(typeof items !== 'undefined' ? items : null)
+                ? items.slice(0, 12).map(it => ({
+                    description: it.concept || it.desc || it.description || 'Servicio',
+                    amountText: typeof it.total === 'number' ? (it.total.toFixed(2) + ' EUR') : ''
+                }))
+                : [];
+            try {
+                const result = await window.NexusVerifyService.issueAndDownloadVerifiedPdf({
+                    groupDocId: docId,
+                    docType: currentTemplate === 'proforma' ? 'proforma' : 'budget',
+                    docSummary: {
+                        docType: currentTemplate === 'proforma' ? 'proforma' : 'budget',
+                        reference: ref,
+                        groupName: groupName,
+                        stayDates: stayDates || '-',
+                        items: summaryItems
+                    }
+                });
+                alert(`PDF definitivo emitido y sellado con Nexus Verify.\n\nCódigo: ${result.verification.displayCode}\nSHA-256: ${result.pdfSha256.slice(0, 16)}…`);
+            } catch (err) {
+                console.error('emitVerifiedProformaPdf error:', err);
+                alert('No se pudo emitir el PDF verificado: ' + (err && err.message ? err.message : 'Servicio no activado en producción todavía.'));
             }
         }
     </script>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.cloudfunctions.net https://*.a.run.app; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self';">
+  <title>Nexus Verify — Verificación de Transferencias Bancarias</title>
+  <style>
+    :root{font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14262b;background:#f4f7f8}
+    *{box-sizing:border-box}body{margin:0}
+    header{background:#102a25;color:#fff;padding:18px max(20px,5vw);display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    header a{color:#d7efe7;text-decoration:none;font-weight:700;border:1px solid #2e6657;padding:8px 14px;border-radius:10px}
+    main{max-width:780px;margin:28px auto;padding:0 18px 48px}
+    .card{background:#fff;border:1px solid #d9e3e7;border-radius:16px;padding:22px;margin:16px 0;box-shadow:0 4px 16px #102a250d}
+    .warn-bar{background:#fff7e0;border:1px solid #e4c15a;color:#5c4200;border-radius:12px;padding:12px 15px;font-size:13px}
+    label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#4a6068;margin-bottom:6px}
+    input[type=text]{width:100%;padding:12px 14px;border:1.5px solid #b8c9d0;border-radius:10px;font:600 15px ui-monospace,monospace}
+    button{cursor:pointer;border:0;border-radius:10px;padding:12px 18px;font:700 14px inherit;background:#0b6e57;color:#fff}
+    button.secondary{background:#eef3f5;color:#14262b;border:1px solid #c7d5db}
+    .row{display:flex;gap:10px;flex-wrap:wrap}.row input{flex:1;min-width:220px}
+    .badge{display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+    .ok{background:#e3f7ee;color:#086346;border:1px solid #8fd8b8}
+    .amber{background:#fff4d4;color:#7a5200;border:1px solid #ecc66a}
+    .red{background:#fde8e8;color:#9b1c1c;border:1px solid #f2a2a2}
+    dl{display:grid;grid-template-columns:180px 1fr;gap:8px 14px;margin:16px 0 0}
+    dt{font-size:12px;font-weight:700;color:#5a7078;text-transform:uppercase}
+    dd{margin:0;font-weight:600;word-break:break-word}
+    .iban{font:800 16px ui-monospace,monospace;letter-spacing:.06em;color:#0b4d3e}
+    .dropzone{border:2px dashed #a8bec6;border-radius:12px;padding:20px;text-align:center;background:#f8fbfc;margin-top:12px}
+    .muted{color:#5e737b;font-size:13px}
+    @media(max-width:600px){dl{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>NEXUS VERIFY</strong><div class="muted" style="color:#c7e5dc">Verificación oficial de transferencias bancarias</div></div>
+    <a href="iban-oficial.html">Consultar IBAN oficial del hotel</a>
+  </header>
+  <main>
+    <div class="warn-bar">
+      <strong>Aviso antifraude:</strong> Un código QR o enlace recibido por correo electrónico <strong>no garantiza por sí solo</strong> la autenticidad del documento. Compruebe siempre que la dirección de su navegador pertenece al dominio oficial del hotel y contraste el IBAN en la página independiente de <a href="iban-oficial.html">IBAN oficial</a>.
+    </div>
+
+    <section class="card">
+      <h1>Comprobar documento emitido</h1>
+      <p class="muted">Introduzca el código de verificación impreso en su presupuesto o factura proforma (formato <code>NV-XXXX-...</code>).</p>
+      <form id="verifyForm">
+        <label for="codeInput">Código de verificación</label>
+        <div class="row">
+          <input id="codeInput" type="text" autocomplete="off" spellcheck="false" placeholder="NV-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" required>
+          <button type="submit" id="verifyBtn">Verificar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" id="resultCard" hidden>
+      <div id="statusBadge" class="badge"></div>
+      <h2 id="resultTitle" style="margin:10px 0 4px"></h2>
+      <p id="resultMessage" class="muted"></p>
+      <dl id="detailsList" hidden></dl>
+      <div id="copyWrap" style="margin-top:14px" hidden>
+        <button type="button" id="copyIbanBtn" class="secondary">Copiar IBAN oficial</button>
+        <span id="copyFeedback" class="muted" style="margin-left:10px"></span>
+      </div>
+    </section>
+
+    <section class="card" id="pdfCheckCard" hidden>
+      <h2>Comprobar integridad del archivo PDF (100 % local)</h2>
+      <p class="muted">Seleccione el archivo PDF recibido. Su huella criptográfica <code>SHA-256</code> se calcula localmente en su navegador sin subir el documento a ningún servidor.</p>
+      <div class="dropzone">
+        <input id="pdfFileInput" type="file" accept="application/pdf,.pdf">
+      </div>
+      <p id="pdfCheckResult" style="margin-top:12px;font-weight:700"></p>
+    </section>
+  </main>
+  <script src="verify.js"></script>
+</body>
+</html>

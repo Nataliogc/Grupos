@@ -447,3 +447,20 @@ test('Fase 2 & 3 (Emulator): negative economic protection blocks alt fields, nes
     assert.equal((await fsPatch('settings/main', forbidden, users.admin.idToken)).status, 403);
   }
 });
+
+test('Nexus Verify (Emulator): verify_documents y verify_audit_logs bloquean toda lectura/escritura cliente (incluso admin)', async () => {
+  await adminDb.collection('verify_documents').doc('hash_demo_123').set({
+    hotel: 'guadiana', status: 'VALID', amountCents: 100000
+  });
+  await adminDb.collection('verify_audit_logs').doc('audit_demo_123').set({
+    eventType: 'ISSUE', hotel: 'guadiana', result: 'ok'
+  });
+
+  for (const token of [null, users.commercialCumbria.idToken, users.directionAll.idToken, users.admin.idToken]) {
+    assert.equal((await fsGet('verify_documents/hash_demo_123', token)).status, 403);
+    assert.equal((await fsPatch('verify_documents/hash_demo_123', { status: 'REVOKED' }, token)).status, 403);
+    assert.equal((await fsCreate('verify_documents', 'hash_forged', { status: 'VALID' }, token)).status, 403);
+    assert.equal((await fsGet('verify_audit_logs/audit_demo_123', token)).status, 403);
+    assert.equal((await fsCreate('verify_audit_logs', 'audit_forged', { eventType: 'FAKE' }, token)).status, 403);
+  }
+});

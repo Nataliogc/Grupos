@@ -123,3 +123,12 @@ exports.nexusCreateUser = nexusUsers.nexusCreateUser;
 exports.nexusLinkUser = nexusUsers.nexusLinkUser;
 exports.nexusUpdateUser = nexusUsers.nexusUpdateUser;
 exports.nexusResetUser = nexusUsers.nexusResetUser;
+
+/* NEXUS VERIFY - VERIFICACION ANTIFRAUDE DE TRANSFERENCIAS (OPCIONAL HASTA ACTIVACION) */
+if (String(process.env.NEXUS_VERIFY_ENABLED || '').toLowerCase() === 'true') {
+  const nexusVerify = require('./nexus-verify');
+  exports.nexusVerifyIssue = nexusVerify.nexusVerifyIssue;
+  exports.nexusVerifySealPdf = nexusVerify.nexusVerifySealPdf;
+  exports.nexusVerifyRevoke = nexusVerify.nexusVerifyRevoke;
+  exports.nexusVerifyLookup = nexusVerify.nexusVerifyLookup;
+}
