@@ -1167,7 +1167,8 @@
                   jornada: r.jornada,
                   hora: r.hora || "---",
                   pax: r.pax || 0,
-                  salon: salonFinal
+                  salon: salonFinal,
+                  observaciones: r.observaciones || ""
                 };
                 if (r.nombre) rowOut.nombre = r.nombre;
                 return rowOut;
@@ -1213,7 +1214,7 @@
       const allPossibleStayDates = [toInputDate(record.Entrada), toInputDate(record.Salida), ...rlStayDates, ...rowDatesList].filter(Boolean).sort();
       const effectiveMinDate = allPossibleStayDates[0] || toInputDate(record.Entrada);
       const effectiveMaxDate = allPossibleStayDates[allPossibleStayDates.length - 1] || toInputDate(record.Salida);
-      const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos, hora:d.detalles.hora || "---"}));
+      const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos, hora:d.detalles.hora || "---", observaciones:""}));
 
       const sortMealRows = (list) => {
         if (!Array.isArray(list)) return [];
@@ -1289,7 +1290,13 @@
       const save = async (automaticMode = false) => {
         setError(""); setSaving(true);
         try {
-          const sortedRows = sortMealRows(rows);
+          const sortedRows = sortMealRows(rows).map(r => {
+            const obs = String(r.observaciones || "").trim();
+            const next = { ...r };
+            if (obs) next.observaciones = obs;
+            else delete next.observaciones;
+            return next;
+          });
           setRows(sortedRows);
           const value = automaticMode ? null : JSON.stringify(sortedRows);
           if (!automaticMode) {
@@ -1322,6 +1329,7 @@
                 type="button"
                 onClick={() => {
                   if (service?.adaptMealScheduleToRecord) {
+                    dirtyRef.current = true;
                     const adapted = service.adaptMealScheduleToRecord(rows, record);
                     setRows(sortMealRows(adapted));
                   }
@@ -1341,6 +1349,7 @@
                   <th className="py-1.5 px-2">Hora (opc.)</th>
                   <th className="py-1.5 px-2">Personas</th>
                   <th className="py-1.5 px-2">Salón en MesaChef</th>
+                  <th className="py-1.5 px-2">Observaciones (MesaChef)</th>
                   <th className="py-1.5 pl-2 text-right"></th>
                 </tr>
               </thead>
@@ -1408,26 +1417,39 @@
                         ].filter((v,i,a)=>v && v !== "Varios salones" && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
                       </select>
                     </td>
+                    <td className="py-1.5 px-2">
+                      <textarea
+                        aria-label="Observaciones para MesaChef"
+                        rows={1}
+                        value={row.observaciones || ""}
+                        disabled={saving}
+                        onChange={e => change(index, "observaciones", e.target.value)}
+                        placeholder="Nota interna para MesaChef (alergias, montaje, menú...)"
+                        title="Se mostrará al principio de Nota interna en MesaChef"
+                        className="border border-slate-300 rounded px-2 py-1 text-xs w-full min-w-[220px] resize-y leading-snug placeholder:text-slate-400"
+                      />
+                    </td>
                     <td className="py-1.5 pl-2 text-right">
-                      <button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Eliminar</button>
+                      <button type="button" disabled={saving} onClick={()=>{ dirtyRef.current = true; setRows(prev=>prev.filter((_,i)=>i!==index)); }} className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Eliminar</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-slate-500">Los cambios realizados en MesaChef (fecha, horario, salón y personas) se recogen aquí; los cambios guardados aquí se pasan a MesaChef. El programa nunca recalcula servicios de forma automática.</p>
+          <p className="text-xs text-slate-500">Los cambios realizados en MesaChef (fecha, horario, salón y personas) se recogen aquí; los cambios y observaciones guardados aquí se pasan a MesaChef (Nota interna). El programa nunca recalcula servicios de forma automática.</p>
 
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
           <button type="button" disabled={saving} onClick={() => { refreshLocations(true); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones y servicios de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows([...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}]))} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(syncAllRowsPax(prev)))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
+            <button type="button" disabled={saving} onClick={()=>{ dirtyRef.current = true; setRows(prev=>sortMealRows([...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA),observaciones:""}])); }} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
+            <button type="button" disabled={saving} onClick={()=>{ dirtyRef.current = true; setRows(prev=>sortMealRows(syncAllRowsPax(prev))); }} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
             <button
               type="button"
               disabled={saving}
               onClick={() => {
                 if (service?.adaptMealScheduleToRecord) {
+                  dirtyRef.current = true;
                   const adapted = service.adaptMealScheduleToRecord(rows, record);
                   setRows(sortMealRows(adapted));
                 }
@@ -11545,7 +11567,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 let currentSchedule = null;
                 try { currentSchedule = service.getMealSchedule(rec0 || selectedGroupFicha); } catch (e) {}
                 const scheduleSignature = (list) => (list || [])
-                  .map(r => `${r.fecha || ""}_${r.jornada || ""}_${(r.hora && r.hora !== "---") ? r.hora : "---"}_${Number(r.pax) || 0}_${String(r.salon || "").trim()}_${String(r.nombre || "").trim()}`)
+                  .map(r => `${r.fecha || ""}_${r.jornada || ""}_${(r.hora && r.hora !== "---") ? r.hora : "---"}_${Number(r.pax) || 0}_${String(r.salon || "").trim()}_${String(r.nombre || "").trim()}_${String(r.observaciones || "").trim()}`)
                   .sort()
                   .join("|");
                 if (scheduleSignature(currentSchedule) !== scheduleSignature(mesaServices)) {

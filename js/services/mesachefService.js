@@ -461,6 +461,28 @@
     }
   }
 
+  function buildMesachefInternalNote(summary, observaciones) {
+    var cleanSummary = String(summary || "").trim();
+    var cleanObs = String(observaciones || "").trim();
+    if (!cleanObs) return cleanSummary;
+    if (!cleanSummary) return cleanObs;
+    return cleanObs + "\n" + cleanSummary;
+  }
+
+  function extractServiceObservaciones(docData) {
+    if (!docData) return "";
+    var interna = String((docData.notas && docData.notas.interna) || "").trim();
+    if (interna) {
+      var markerIdx = interna.lastIndexOf("\n[Nexus Groups]");
+      if (markerIdx >= 0) return interna.slice(0, markerIdx).trim();
+      if (interna.indexOf("[Nexus Groups]") === 0) return "";
+      var inlineIdx = interna.lastIndexOf("[Nexus Groups]");
+      if (inlineIdx > 0) return interna.slice(0, inlineIdx).replace(/[\s|]+$/, "").trim();
+      return interna;
+    }
+    return String(docData.nexusObservaciones || "").trim();
+  }
+
   /**
    * Prepara los documentos diarios para la colección `reservas_salones` de MesaChef Matrix
    * Soporta regímenes y pax distintos para cada día de estancia (extraídos de DailyDistribution_JSON / RoomingList_JSON).
@@ -509,6 +531,7 @@
       seen[key] = true;
       var h = extractRegisteredHour(row.hora || row.hour);
       var cleanHour = h || (row.hora && row.hora !== "---" ? String(row.hora).trim() : "---");
+      var cleanObs = String(row.observaciones || "").trim();
       return {
         fecha: date,
         jornada: jNorm,
@@ -516,7 +539,8 @@
         hora: cleanHour,
         nombre: cleanNombre,
         id: row.id || undefined,
-        salon: String(row.salon || "").trim()
+        salon: String(row.salon || "").trim(),
+        observaciones: cleanObs
       };
     });
     return sortMealRows(mapped);
@@ -896,7 +920,11 @@
         doc.detalles.incluido = included === row.pax;
         doc.detalles.pax_extra = row.pax - included;
         var label = getMealLabel(row.jornada, row.nombre);
-        doc.notas.interna = "[Nexus Groups] Ref: " + reservaId + " | Programación de " + (row.jornada === "almuerzo" || row.jornada === "cena" ? "comidas" : label) + " | Pax: " + row.pax + (row.pax > included ? " | Extras pendientes de valorar: " + (row.pax - included) : "");
+        var internalSummary = "[Nexus Groups] Ref: " + reservaId + " | Programación de " + (row.jornada === "almuerzo" || row.jornada === "cena" ? "comidas" : label) + " | Pax: " + row.pax + (row.pax > included ? " | Extras pendientes de valorar: " + (row.pax - included) : "");
+        var rowObservaciones = String(row.observaciones || "").trim();
+        doc.notas = doc.notas || { interna: "", cliente: "" };
+        doc.nexusObservaciones = rowObservaciones;
+        doc.notas.interna = buildMesachefInternalNote(internalSummary, rowObservaciones);
         doc.servicios = [{fecha:row.fecha, hora:scheduleHour,
           concepto: label + " Grupo (programado)", uds:row.pax, precio:0, total:0}];
         return doc;
@@ -1939,6 +1967,7 @@
                 oldFirstSvc.concepto !== newFirstSvc.concepto ||
                 oldFirstSvc.hora !== newFirstSvc.hora ||
                 oldNotas.interna !== newNotas.interna ||
+                (existing.nexusObservaciones || "") !== (docData.nexusObservaciones || "") ||
                 (docData.ordenServicio && existing.nexusServiceOrderRevision !== docData.nexusServiceOrderRevision)
               ) {
                 isDifferent = true;
@@ -2289,6 +2318,7 @@
         var effectiveSalon = String(d.salonOverride || d.salon || "").trim();
         var rawConcepto = (d.servicios && d.servicios[0] && d.servicios[0].concepto) || "";
         var customNombre = extractCustomServiceName(effectiveJornada, rawConcepto);
+        var effectiveObservaciones = extractServiceObservaciones(d);
         if (effectiveFecha && effectiveJornada) {
           var row = {
             id: docSnap.id,
@@ -2299,6 +2329,7 @@
             salon: effectiveSalon
           };
           if (customNombre) row.nombre = customNombre;
+          if (effectiveObservaciones) row.observaciones = effectiveObservaciones;
           services.push(row);
         }
       });
@@ -2328,6 +2359,8 @@
     mapMesachefStatus: mapMesachefStatus,
     resolveHotelAndSalon: resolveHotelAndSalon,
     extractRegisteredHour: extractRegisteredHour,
+    buildMesachefInternalNote: buildMesachefInternalNote,
+    extractServiceObservaciones: extractServiceObservaciones,
     applyServiceOrderDetails: applyServiceOrderDetails,
     sortMealRows: sortMealRows,
     getMealSchedule: getMealSchedule,
