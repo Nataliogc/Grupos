@@ -27,6 +27,24 @@ const { decodeAndVerifyResponse, signPayload } = require('../functions/redsys');
 const fakeKey = Buffer.alloc(24, 9).toString('base64');
 const fakeInterSecret = 'test-inter-service-secret-fixture-only';
 
+test('Grupos registra una sola vez el pago íntegro y cierra el tramo', async () => {
+  const db = makeTransactionalDb([['groups/grupo', {
+    Reserva: 80404, Hotel_Asignado: 'Cumbria Spa&Hotel', Com_Total: 1292,
+    PaymentPlan_JSON: JSON.stringify([{ amount: 1292, status: 'Pendiente' }])
+  }]]);
+  const notification = {
+    hotel: 'cumbria', hotelName: 'Cumbria', app: 'grupos', referenceId: '80404',
+    orderId: '1001GRP40401', authCode: 'TEST', amountEuros: 1292, isAuthorized: true
+  };
+  const apply = () => applyGruposPayment({ db, notification });
+  await Promise.all([apply(), apply()]);
+  const row = db.store.get('groups/grupo');
+  assert.equal(row.Com_Pagado, 1292);
+  assert.equal(row.PayGold_UltimoEstado, 'PAGADO');
+  assert.equal(JSON.parse(row.PaymentPlan_JSON)[0].status, 'Cobrado');
+  assert.equal(JSON.parse(row.tracking).length, 1);
+});
+
 function makeTransactionalDb(initialEntries = []) {
   const store = new Map(initialEntries);
   let queue = Promise.resolve();

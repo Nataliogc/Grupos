@@ -34,6 +34,18 @@ function groupFinances(row) {
   return {plan, total, received};
 }
 
+async function findGroup(db, hotel, ref) {
+  const text = String(ref ?? '').trim();
+  if (!text) return null;
+  const keys = [text];
+  const number = Number(text);
+  if (Number.isSafeInteger(number) && number >= 0 && String(number) === text) keys.push(number);
+  const snapshots = await Promise.all(keys.map(key => db.collection('groups').where('Reserva', '==', key).get()));
+  const matches = snapshots.flatMap(snapshot => snapshot.docs)
+    .filter(doc => matchesHotel(doc.data().Hotel_Asignado, hotel));
+  return matches.length === 1 ? matches[0] : null;
+}
+
 async function resolvePayGoldAmount(db, app, hotel, ref, selection) {
   const selected = cents(selection);
   if (!(selected > 0)) return null;
@@ -64,10 +76,9 @@ async function resolvePayGoldAmount(db, app, hotel, ref, selection) {
     return selected <= balance && [balance, deposit].includes(selected) ? selected / 100 : null;
   }
   if (app !== 'grupos' || /^PRES-/i.test(ref)) return null;
-  const snapshot = await db.collection('groups').where('Reserva', '==', ref).get();
-  const rows = snapshot.docs.map(doc => doc.data()).filter(row => matchesHotel(row.Hotel_Asignado, hotel));
-  if (rows.length !== 1) return null;
-  const row = rows[0];
+  const doc = await findGroup(db, hotel, ref);
+  if (!doc) return null;
+  const row = doc.data();
   const {plan, total, received} = groupFinances(row);
   const balance = total - received;
   const instalment = plan.find(p => !paid(p) && cents(p.amount) > 0);
@@ -76,4 +87,4 @@ async function resolvePayGoldAmount(db, app, hotel, ref, selection) {
   const approved = allowed.find(amount => amount === selected && amount <= balance);
   return approved === undefined ? null : approved / 100;
 }
-module.exports = { resolvePayGoldAmount, matchesHotel, groupFinances, cents, paid };
+module.exports = { resolvePayGoldAmount, findGroup, matchesHotel, groupFinances, cents, paid };

@@ -1,4 +1,4 @@
-const { matchesHotel, groupFinances, cents, paid } = require('../../paygold-amount');
+const { findGroup, matchesHotel, groupFinances, cents, paid } = require('../../paygold-amount');
 const { applyOnce } = require('../core/delivery-receipt');
 /**
  * ═════════════════════════════════════════════════════════════════════════════
@@ -21,17 +21,12 @@ async function applyGruposPayment({
 }) {
   const { orderId, referenceId, amountEuros, isAuthorized, authCode, hotelName, responseCode, bankDescription } = notification;
 
-  const candidates = buildSearchCandidates(orderId, referenceId);
-  const colRef = db.collection('groups');
+  const candidates = buildSearchCandidates('', referenceId || orderId);
 
   let targetDoc = null;
   for (const c of candidates) {
-    const snap = await colRef.where('Reserva', '==', c).get();
-    const matches = snap.docs.filter(doc => matchesHotel(doc.data().Hotel_Asignado, notification.hotel));
-    if (matches.length === 1) {
-      targetDoc = matches[0];
-      break;
-    }
+    targetDoc = await findGroup(db, notification.hotel, c);
+    if (targetDoc) break;
   }
 
   if (!targetDoc) {
