@@ -144,6 +144,19 @@ async function processRedsysNotification({
   if (!db?.runTransaction) return { status: 503, message: 'Registro de pedidos no disponible' };
   try {
     // Búsqueda inteligente: clave compuesta moderna o pedido antiguo (100% retrocompatible)
+    // El pedido original conserva el destino incluso si un receptor anterior
+    // registró el mismo aviso bajo la aplicación "unknown".
+    if (route.app === 'unknown') {
+      const original = await db.collection('paygold_orders').doc(orderId).get();
+      if (original.exists) {
+        const order = original.data();
+        if (order.hotel !== hotelKey || order.orderId !== orderId ||
+            !order.referenceId || (metadata?.referenceId && metadata.referenceId !== order.referenceId))
+          return {status:409, message:'Pedido no coincide'};
+        route = resolveRoute({orderId, metadata:{app:order.app, referenceId:order.referenceId}});
+        compositeId = buildCompositeOperationId(hotelKey, route.app, orderId);
+      }
+    }
     let found = await findTransactionDoc(db, compositeId, orderId);
     if (!found) return { status: 409, message: 'Pedido desconocido' };
     const record = found.doc.data();

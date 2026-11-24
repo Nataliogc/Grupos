@@ -8,7 +8,7 @@ const key = Buffer.alloc(24, 7).toString('base64');
 const orderId = '1234GRUPO001';
 const referenceId = 'GRP-5432';
 
-function fixture() {
+function fixture(orderId = '1234GRUPO001') {
   let row = { orderId, referenceId, app: 'grupos', hotel: 'cumbria', amountRequested: 100 };
   let deliveries = 0;
   let queue = Promise.resolve();
@@ -45,6 +45,15 @@ test('bank notifications and concurrent redelivery', async t => {
   assert.deepEqual(results.map(r => r.status), [200,200]);
   assert.equal(results.filter(r => r.idempotent).length, 1);
   assert.equal((await f.notify()).idempotent, true);
+  assert.equal(f.deliveries(), 1);
+});
+test('routes a compact GRP order with missing merchant data using its original order', async t => {
+  t.mock.method(HOTELS.cumbria, 'getSecretKey', () => key);
+  const f = fixture('1001GRP40401');
+  const result = await f.notify({Ds_MerchantData: undefined});
+  assert.equal(result.route.app, 'grupos');
+  assert.equal(result.route.referenceId, referenceId);
+  assert.equal((await f.notify({Ds_MerchantData: undefined})).idempotent, true);
   assert.equal(f.deliveries(), 1);
 });
 test('payment amounts reflect the hotel, outstanding balance and posted payments', async () => {
