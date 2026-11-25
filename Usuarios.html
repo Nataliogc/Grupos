@@ -16,6 +16,32 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 7px
 #notice{white-space:pre-wrap;padding:12px;border-radius:9px;background:#e8f4ee;display:none}
 #secret{display:none;padding:15px;background:#fff7d8;border:1px solid #d9aa48;border-radius:9px;overflow-wrap:anywhere}
 @media(max-width:760px){.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto}header{flex-wrap:wrap}}
+
+main{max-width:1340px}
+.card{padding:clamp(18px,2vw,32px);box-shadow:0 5px 20px #14353009}
+h2{font-size:21px;letter-spacing:-.025em;margin:0 0 18px}
+.grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:16px}
+label{margin:0 0 6px;color:#354e50}
+.grid>div:nth-last-child(2){grid-column:1/-2}
+.grid>div:last-child{text-align:right}
+label[for=canConvertBudget]{display:flex;align-items:center;min-height:42px;margin:0;font-weight:500}
+input[type=checkbox]{accent-color:#08765f;width:17px!important;height:17px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #19856b;outline-offset:2px}
+button:hover{background:#edf5f2}.primary:hover{background:#075e4d}.danger:hover{background:#fff2ef}
+.directory-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.directory-head h2{margin:0}
+th{background:#eff5f3;font-weight:650}
+th,td{padding:12px}
+td{font-size:14px}
+td strong,td small{display:block}
+td small{font-size:13px;color:#50646b;margin-top:3px;overflow-wrap:anywhere}
+td button{font-size:13px;padding:7px 10px}
+.status{display:inline-block;border-radius:20px;padding:4px 10px;background:#edf0f2;color:#475562;white-space:nowrap}
+.status.active{background:#dcf3e9;color:#14583e}
+tbody tr:hover{background:#fafcfb}
+@media(max-width:950px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){main{padding:0 12px}.grid{grid-template-columns:1fr}.grid>div:nth-last-child(2){grid-column:auto}.grid>div:last-child{text-align:left}.directory-head{flex-wrap:wrap}thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}table,tbody,tr,td{display:block}tr{border-top:1px solid #cfddda;padding:12px 0}td{border:0;padding:4px 0}.actions{gap:6px}}
+dialog{width:min(520px,94vw);max-height:90vh;overflow:auto;border:1px solid #ceddd7;border-radius:14px;padding:24px;color:inherit}dialog::backdrop{background:#102a2580}dialog label{margin-top:12px}.choice{display:flex;gap:8px;align-items:center}.choice input{width:auto}dialog fieldset{margin:18px 0;padding:12px;border:1px solid #ceddd7;border-radius:8px}#scopeChoices section{margin:10px 0}#scopeChoices .choice{display:inline-flex;margin:6px 14px 6px 0}#editError{color:#952222}
 </style></head><body>
 <header><div><strong>NEXUS GROUPS</strong><div class="muted" style="color:#d9ece6">Administración segura de usuarios</div></div>
 <a class="link" href="Admin.html#inicio">Volver al inicio</a></header>
@@ -39,10 +65,23 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 7px
 <button id="copySecret" type="button">Copiar enlace</button><button id="hideSecret" type="button">Ocultar</button>
 <p class="muted">Este enlace puede permitir establecer una contraseña. No lo publiques ni lo reenvíes a terceros.</p></div>
 </section>
-<section class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h2>Directorio de usuarios</h2><button id="reload">Actualizar lista</button></div>
-<table><thead><tr><th>Empleado</th><th>Correo</th><th>Rol</th><th>Hoteles / Conversión</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table>
+<section class="card"><div class="directory-head"><h2>Directorio de usuarios</h2><button id="reload">Actualizar lista</button></div>
+<table><thead><tr><th>Empleado</th><th>Perfil</th><th>Hoteles y permisos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table>
 <p class="muted">La revocación desactiva Firebase Authentication, la membresía y los tokens de actualización. Las operaciones de pago requieren controles independientes.</p>
 </section></div>
+<dialog id="editor" aria-labelledby="editTitle">
+<form id="editForm">
+<h2 id="editTitle">Editar usuario</h2><p id="editEmail"></p>
+<label for="editName">Nombre</label><input id="editName" required minlength="2" maxlength="100">
+<label for="editRole">Perfil</label><select id="editRole" required></select>
+<label for="editHotels">Hoteles autorizados</label><select id="editHotels" required></select>
+<label class="choice"><input id="editConvert" type="checkbox">Convertir presupuestos en reservas</label>
+<fieldset><legend>Crear enlaces de cobro PayGold</legend>
+<p class="muted">Marca las aplicaciones que puede utilizar en cada hotel.</p>
+<div id="scopeChoices"></div></fieldset>
+<p id="editError" role="alert"></p>
+<div class="actions"><button class="primary" type="submit">Guardar cambios</button><button type="button" id="cancelEdit">Cancelar</button></div>
+</form></dialog>
 </main>
 <script src="js/vendor/firebase-app-compat.js"></script>
 <script src="js/vendor/firebase-auth-9.22.1-compat.js"></script>
@@ -77,15 +116,89 @@ $('hideSecret').onclick=()=>{$('secretUrl').textContent='';$('secret').style.dis
 function button(title,handler,cls){const b=document.createElement('button');b.textContent=title;b.type='button';if(cls)b.className=cls;b.onclick=handler;return b;}
 async function api(name,data){return (await firebase.app().functions('us-central1').httpsCallable(name)(data||{})).data;}
 let ownUid=null,items=[];
+let editingUid;
+function updateScopeChoices(){
+  const hotels = $('editHotels').value.split(',');
+  for(const box of $('scopeChoices').querySelectorAll('input')){
+    box.disabled = !hotels.includes(box.value.split('/')[0]);
+  }
+}
+function openEditor(user){
+  editingUid=user.uid;
+  $('editEmail').textContent=user.email;
+  $('editError').textContent='';
+  $('editName').value=user.name || '';
+  for(const [source,target] of [['role','editRole'],['hotels','editHotels']]){
+    $(target).replaceChildren(...Array.from($(source).options,option=>option.cloneNode(true)));
+  }
+  $('editRole').value=user.role;
+  $('editHotels').value=['cumbria','guadiana'].filter(h=>(user.hotels||[]).includes(h)).join(',');
+  $('editConvert').checked=user.canConvertBudget===true;
+  $('scopeChoices').replaceChildren();
+  for(const [hotel,title] of [['cumbria','Cumbria'],['guadiana','Guadiana']]){
+    const row=document.createElement('section');
+    const heading=document.createElement('strong');
+    heading.textContent=title;
+    row.append(heading,document.createElement('br'));
+    for(const [app,label] of [['grupos','Grupos'],['mesachef','MesaChef'],['spa','Spa']]){
+      const choice=document.createElement('label');
+      choice.className='choice';
+      const box=document.createElement('input');
+      box.type='checkbox';
+      box.value=hotel+'/'+app;
+      box.checked=(user.paymentScopes||[]).includes(box.value);
+      choice.append(box,label);
+      row.append(choice);
+    }
+    $('scopeChoices').append(row);
+  }
+  updateScopeChoices();
+  $('editor').showModal();
+}
+$('editHotels').onchange=updateScopeChoices;
+$('cancelEdit').onclick=()=>$('editor').close();
+$('editForm').onsubmit=async event=>{
+  event.preventDefault();
+  const submit=event.target.querySelector('[type=submit]');
+  submit.disabled=true;
+  $('cancelEdit').disabled=true;
+  $('editor').oncancel=e=>e.preventDefault();
+  const paymentScopes=Array.from($('scopeChoices').querySelectorAll('input:checked:enabled'),box=>box.value);
+  try{
+    await api('nexusUpdateUser',{uid:editingUid,name:$('editName').value.trim(),role:$('editRole').value,
+      hotels:$('editHotels').value.split(','),canConvertBudget:$('editConvert').checked,paymentScopes});
+    $('editor').close();
+    message('Perfil actualizado');
+    await refresh().catch(error);
+  }catch(e){$('editError').textContent=e.message || 'No se pudieron guardar los cambios.'}
+  finally{submit.disabled=false;$('cancelEdit').disabled=false;$('editor').oncancel=null}
+};
 async function refresh(){
   const r=await api('nexusListUsers');items=r.users||[];$('users').replaceChildren();
   for(const u of items){
     const tr=document.createElement('tr');
-    const hotelsLabel = (u.hotels && u.hotels.length) ? u.hotels.join(', ') : 'Sin hoteles';
-    const convLabel = u.canConvertBudget ? 'Sí convierte' : 'No convierte';
-    for(const value of [u.name,u.email,u.linked?(roles[u.role]||u.role):'Sin vincular',u.linked?(hotelsLabel+' · '+convLabel):'—',u.disabled?'Inhabilitado':(u.linked&&u.active?'Activo':'Sin permiso')]){
-      const td=document.createElement('td');td.textContent=value;tr.appendChild(td);
+    function cell(text, tag = 'span') {
+      const td = tr.insertCell();
+      const label = document.createElement(tag);
+      label.textContent = text;
+      td.append(label);
+      return td;
     }
+    function detail(td, text) {
+      const line = document.createElement('small');
+      line.textContent = text;
+      td.append(line);
+    }
+    const employee = cell(u.name || u.email, 'strong');
+    if (u.name) detail(employee, u.email);
+    cell(u.linked ? roles[u.role] || u.role : 'Sin vincular');
+    const hotelNames = { cumbria: 'Cumbria', guadiana: 'Guadiana' };
+    const hotels = (u.hotels || []).map(h => hotelNames[h] || h);
+    const access = cell(u.linked ? hotels.join(' y ') || 'Sin hoteles' : 'Sin acceso');
+    if (u.linked) detail(access, u.canConvertBudget ? 'Puede convertir presupuestos' : 'Sin conversión de presupuestos');
+    const active = !u.disabled && u.linked && u.active;
+    const status = cell(u.disabled ? 'Inhabilitado' : active ? 'Activo' : 'Sin permiso');
+    status.firstChild.className = active ? 'status active' : 'status';
     const actions=document.createElement('td'),wrap=document.createElement('div');wrap.className='actions';
     if(u.testAccount) { actions.textContent='Cuenta demo: no asignar acceso';tr.appendChild(actions);$('users').appendChild(tr);continue; }
     if(!u.linked && !u.disabled){wrap.append(button('Vincular cuenta',async()=>{
@@ -98,19 +211,7 @@ async function refresh(){
       if(!confirm('¿Vincular '+u.email+' como '+role+'?'))return;
       try{await api('nexusLinkUser',{email:u.email,name,role,hotels,canConvertBudget});await refresh();message('Cuenta existente vinculada sin duplicarla.');}catch(e){error(e)}
     },'primary'));}
-    if(u.linked)wrap.append(button('Editar',async()=>{
-      const name=prompt('Nombre del empleado',u.name);if(name===null)return;
-      const role=prompt('Rol: admin, direction, reception o commercial',u.role);if(role===null)return;
-      if(!validRoles.includes(role)){message('Rol incorrecto');return;}
-      const hotelsRaw=prompt('Hoteles autorizados (cumbria, guadiana)',(u.hotels&&u.hotels.length?u.hotels:['cumbria','guadiana']).join(', '));
-      if(hotelsRaw===null)return;
-      const hotels=parseHotels(hotelsRaw);if(!hotels){message('Hoteles incorrectos');return;}
-      const canConvertBudget=confirm('¿Permitir convertir presupuestos en reserva definitiva?\n(Aceptar = Sí, Cancelar = No)');
-      const scopes=prompt('Permisos PayGold separados por comas. Indica hotel/aplicación, por ejemplo cumbria/grupos. Hoteles: cumbria, guadiana. Aplicaciones: grupos, mesachef, spa.',(u.paymentScopes||[]).join(', '));
-      if(scopes===null)return;
-      const paymentScopes=scopes.split(',').map(s=>s.trim()).filter(Boolean);
-      try{await api('nexusUpdateUser',{uid:u.uid,name,role,hotels,canConvertBudget,paymentScopes});await refresh();message('Perfil actualizado');}catch(e){error(e)}
-    }));
+    if(u.linked)wrap.append(button('Editar',()=>openEditor(u)));
     if(u.linked&&u.uid!==ownUid)wrap.append(button(u.active?'Revocar':'Reactivar',async()=>{
       if(!confirm('¿Confirmas el cambio de acceso de '+u.email+'?'))return;
       try{await api('nexusUpdateUser',{uid:u.uid,active:!u.active});await refresh();message('Acceso actualizado');}catch(e){error(e)}
