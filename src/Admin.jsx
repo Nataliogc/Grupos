@@ -804,6 +804,33 @@
         return alertsList;
       }, [filteredGroups]);
 
+      // Grupos que el Excel del PMS da por ANULADOS pero que en Nexus siguen activos.
+      // Van aparte de las columnas y sin límite de días: hay que revisarlos siempre.
+      const excelCancelledActive = React.useMemo(() => {
+        const list = [];
+        const seen = new Set();
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const cancelWords = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO", "CADUC"];
+        (filteredGroups || []).forEach((g) => {
+          const resId = String(g.Reserva || g.Com_Id || g.id || "").trim();
+          if (!resId || seen.has(resId)) return;
+          const excelStatus = String(g.Estado || "").toUpperCase();
+          if (!excelStatus.includes("ANUL") && g._diff !== "cancelled") return;
+          const internal = String(g.Com_Estado_Interno || g["Segment."] || "").toUpperCase();
+          if (cancelWords.some(w => internal.includes(w))) return;
+          const departure = parseDate(g.Salida || g.Entrada);
+          if (departure && departure < startOfToday) return;
+          if (selectedComercial !== "todos") {
+            const com = (g.Com_Comercial || g.Comercial || "").trim().toUpperCase();
+            if (selectedComercial === "sin_asignar" ? !!com : com !== selectedComercial.trim().toUpperCase()) return;
+          }
+          seen.add(resId);
+          list.push({ group: g, internal: internal || "ACTIVO" });
+        });
+        return list.sort((a, b) => (parseDate(a.group.Entrada) || 0) - (parseDate(b.group.Entrada) || 0));
+      }, [filteredGroups, selectedComercial]);
+
       // 2. Lista de comerciales y contador de alertas por comercial para el hotel actual
       const { commercialList, commercialCounts } = React.useMemo(() => {
         const countsMap = { total: allHotelAlerts.length, _sin_asignar: 0 };
@@ -2881,6 +2908,48 @@ ${comercial}`;
             </a>
           </div>
 
+          {excelCancelledActive.length > 0 && (
+            <div className="mb-5 rounded-[2rem] border-2 border-red-500 bg-red-50 p-5 shadow-lg shadow-red-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow animate-pulse">
+                  <LucideIcon name="octagon-alert" size={20} strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-red-800 uppercase tracking-wider">
+                    Anulados en el Excel · siguen activos en Nexus ({excelCancelledActive.length})
+                  </h3>
+                  <p className="text-[11px] font-semibold text-red-700">
+                    El PMS los da por anulados, pero en Nexus siguen vivos. Revísalos: anúlalos en la ficha o aclara el estado con el cliente.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                {excelCancelledActive.map(({ group: g, internal }) => (
+                  <div
+                    key={g.Reserva || g.id}
+                    onClick={() => {
+                      try { localStorage.setItem("nexus_return_reserva", g.Reserva); } catch (_) {}
+                      window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(g.Reserva)}&returnTo=${encodeURIComponent(window.location.href)}`;
+                    }}
+                    className="bg-white rounded-2xl border border-red-200 hover:border-red-500 hover:shadow-md p-3 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-slate-800 truncate">{g["Nombre del Grupo"] || g["Empresa/Agencia"] || g.Reserva}</span>
+                      <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white">ANULADO EXCEL</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                      <span>#{g.Reserva} · {formatDate(parseDate(g.Entrada))}</span>
+                      <span className="text-red-700">Nexus: {internal}</span>
+                    </div>
+                    {(g.Com_Comercial || g.Comercial) && (
+                      <div className="mt-0.5 text-[10px] text-slate-400 font-bold">{g.Com_Comercial || g.Comercial}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Grid de Alertas - 5 columnas */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 items-start">
             <AlertColumn
@@ -3691,7 +3760,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.128 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.129 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>

@@ -847,6 +847,40 @@ var Dashboard = function Dashboard(_ref) {
     return alertsList;
   }, [filteredGroups]);
 
+  // Grupos que el Excel del PMS da por ANULADOS pero que en Nexus siguen activos.
+  // Van aparte de las columnas y sin límite de días: hay que revisarlos siempre.
+  var excelCancelledActive = React.useMemo(function () {
+    var list = [];
+    var seen = new Set();
+    var now = new Date();
+    var startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var cancelWords = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO", "CADUC"];
+    (filteredGroups || []).forEach(function (g) {
+      var resId = String(g.Reserva || g.Com_Id || g.id || "").trim();
+      if (!resId || seen.has(resId)) return;
+      var excelStatus = String(g.Estado || "").toUpperCase();
+      if (!excelStatus.includes("ANUL") && g._diff !== "cancelled") return;
+      var internal = String(g.Com_Estado_Interno || g["Segment."] || "").toUpperCase();
+      if (cancelWords.some(function (w) {
+        return internal.includes(w);
+      })) return;
+      var departure = parseDate(g.Salida || g.Entrada);
+      if (departure && departure < startOfToday) return;
+      if (selectedComercial !== "todos") {
+        var com = (g.Com_Comercial || g.Comercial || "").trim().toUpperCase();
+        if (selectedComercial === "sin_asignar" ? !!com : com !== selectedComercial.trim().toUpperCase()) return;
+      }
+      seen.add(resId);
+      list.push({
+        group: g,
+        internal: internal || "ACTIVO"
+      });
+    });
+    return list.sort(function (a, b) {
+      return (parseDate(a.group.Entrada) || 0) - (parseDate(b.group.Entrada) || 0);
+    });
+  }, [filteredGroups, selectedComercial]);
+
   // 2. Lista de comerciales y contador de alertas por comercial para el hotel actual
   var _React$useMemo = React.useMemo(function () {
       var countsMap = {
@@ -2500,6 +2534,49 @@ var Dashboard = function Dashboard(_ref) {
     name: "external-link",
     size: 14,
     className: "text-slate-300 group-hover:text-violet-600 shrink-0 transition-colors"
+  }))), excelCancelledActive.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-5 rounded-[2rem] border-2 border-red-500 bg-red-50 p-5 shadow-lg shadow-red-100"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow animate-pulse"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "octagon-alert",
+    size: 20,
+    strokeWidth: 2.5
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black text-red-800 uppercase tracking-wider"
+  }, "Anulados en el Excel \xB7 siguen activos en Nexus (", excelCancelledActive.length, ")"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] font-semibold text-red-700"
+  }, "El PMS los da por anulados, pero en Nexus siguen vivos. Rev\xEDsalos: an\xFAlalos en la ficha o aclara el estado con el cliente."))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3"
+  }, excelCancelledActive.map(function (_ref5) {
+    var g = _ref5.group,
+      internal = _ref5.internal;
+    return /*#__PURE__*/React.createElement("div", {
+      key: g.Reserva || g.id,
+      onClick: function onClick() {
+        try {
+          localStorage.setItem("nexus_return_reserva", g.Reserva);
+        } catch (_) {}
+        window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(g.Reserva), "&returnTo=").concat(encodeURIComponent(window.location.href));
+      },
+      className: "bg-white rounded-2xl border border-red-200 hover:border-red-500 hover:shadow-md p-3 cursor-pointer transition-all"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs font-black text-slate-800 truncate"
+    }, g["Nombre del Grupo"] || g["Empresa/Agencia"] || g.Reserva), /*#__PURE__*/React.createElement("span", {
+      className: "shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white"
+    }, "ANULADO EXCEL")), /*#__PURE__*/React.createElement("div", {
+      className: "mt-1 flex items-center justify-between text-[10px] text-slate-500 font-bold"
+    }, /*#__PURE__*/React.createElement("span", null, "#", g.Reserva, " \xB7 ", formatDate(parseDate(g.Entrada))), /*#__PURE__*/React.createElement("span", {
+      className: "text-red-700"
+    }, "Nexus: ", internal)), (g.Com_Comercial || g.Comercial) && /*#__PURE__*/React.createElement("div", {
+      className: "mt-0.5 text-[10px] text-slate-400 font-bold"
+    }, g.Com_Comercial || g.Comercial));
   }))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 items-start"
   }, /*#__PURE__*/React.createElement(AlertColumn, {
@@ -3213,12 +3290,12 @@ var Dashboard = function Dashboard(_ref) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.128 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.129 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
-var GroupsManager = function GroupsManager(_ref5) {
-  var data = _ref5.data,
-    onUpdateStatus = _ref5.onUpdateStatus,
-    onDeleteGroup = _ref5.onDeleteGroup;
+var GroupsManager = function GroupsManager(_ref6) {
+  var data = _ref6.data,
+    onUpdateStatus = _ref6.onUpdateStatus,
+    onDeleteGroup = _ref6.onDeleteGroup;
   var _React$useState17 = React.useState(""),
     _React$useState18 = _slicedToArray(_React$useState17, 2),
     searchTerm = _React$useState18[0],
@@ -3440,10 +3517,10 @@ var GroupsManager = function GroupsManager(_ref5) {
     className: "col-span-full text-center py-20 text-slate-400"
   }, "No se encontraron grupos coincidiendo con tu b\xFAsqueda.")));
 };
-var BudgetManager = function BudgetManager(_ref6) {
-  var data = _ref6.data,
-    onUpdateStatus = _ref6.onUpdateStatus,
-    onDeleteGroup = _ref6.onDeleteGroup;
+var BudgetManager = function BudgetManager(_ref7) {
+  var data = _ref7.data,
+    onUpdateStatus = _ref7.onUpdateStatus,
+    onDeleteGroup = _ref7.onDeleteGroup;
   var _React$useState19 = React.useState(""),
     _React$useState20 = _slicedToArray(_React$useState19, 2),
     searchTerm = _React$useState20[0],
@@ -3733,7 +3810,7 @@ var App = function App() {
     successToast = _useState10[0],
     setSuccessToast = _useState10[1];
   var handleUpdateStatus = /*#__PURE__*/function () {
-    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(groupId, newStatus) {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(groupId, newStatus) {
       var docId, _t5;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
@@ -3764,11 +3841,11 @@ var App = function App() {
       }, _callee3, null, [[0, 2]]);
     }));
     return function handleUpdateStatus(_x3, _x4) {
-      return _ref7.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }();
   var handleDeleteGroup = /*#__PURE__*/function () {
-    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(groupId) {
+    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(groupId) {
       var docId, _t6;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -3803,7 +3880,7 @@ var App = function App() {
       }, _callee4, null, [[1, 3]]);
     }));
     return function handleDeleteGroup(_x5) {
-      return _ref8.apply(this, arguments);
+      return _ref9.apply(this, arguments);
     };
   }();
 
