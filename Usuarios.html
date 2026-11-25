@@ -68,7 +68,7 @@ dialog{width:min(520px,94vw);max-height:90vh;overflow:auto;border:1px solid #ced
 <div><label for="email">Correo electrónico</label><input id="email" type="email" autocomplete="off" required></div>
 <div><label for="role">Perfil</label><select id="role"><option value="commercial">Comercial</option><option value="reception">Recepción</option><option value="direction">Dirección</option><option value="admin">Administrador</option></select></div>
 <div><label for="hotels">Hoteles autorizados</label><select id="hotels"><option value="cumbria,guadiana">Cumbria y Guadiana</option><option value="cumbria">Solo Cumbria</option><option value="guadiana">Solo Guadiana</option></select></div>
-<div><label for="canConvertBudget"><input id="canConvertBudget" type="checkbox" style="width:auto;margin-right:8px">Permitir convertir presupuestos en reserva definitiva</label></div>
+<div><label class="choice"><input id="createEditGroups" type="checkbox">Edición completa de fichas de grupos</label><label for="canConvertBudget"><input id="canConvertBudget" type="checkbox" style="width:auto;margin-right:8px">Permitir convertir presupuestos en reserva definitiva</label></div>
 <div><button class="primary" type="submit">Crear cuenta e invitación</button></div>
 </form>
 <p class="muted">Se genera un enlace para que el nuevo empleado establezca su propia contraseña. El administrador debe enviárselo por un canal privado y verificar el destinatario.</p>
@@ -91,7 +91,7 @@ dialog{width:min(520px,94vw);max-height:90vh;overflow:auto;border:1px solid #ced
 <label for="editName">Nombre</label><input id="editName" required minlength="2" maxlength="100">
 <label for="editRole">Perfil</label><select id="editRole" required></select>
 <label for="editHotels">Hoteles autorizados</label><select id="editHotels" required></select>
-<label class="choice"><input id="editConvert" type="checkbox">Convertir presupuestos en reservas</label>
+<label class="choice"><input id="editGroups" type="checkbox">Edición completa de fichas de grupos</label><p class="muted">Incluye fechas, habitaciones, rooming, servicios y tarifas de los hoteles autorizados. Los cobros y la conversión tienen permisos propios.</p><label class="choice"><input id="editConvert" type="checkbox">Convertir presupuestos en reservas</label>
 <fieldset><legend>Crear enlaces de cobro PayGold</legend>
 <p class="muted">Marca las aplicaciones que puede utilizar en cada hotel.</p>
 <div id="scopeChoices"></div></fieldset>
@@ -149,6 +149,7 @@ function openEditor(user){
   }
   $('editRole').value=user.role;
   $('editHotels').value=['cumbria','guadiana'].filter(h=>(user.hotels||[]).includes(h)).join(',');
+  $('editGroups').checked=user.canEditGroups===true;
   $('editConvert').checked=user.canConvertBudget===true;
   $('scopeChoices').replaceChildren();
   for(const [hotel,title] of [['cumbria','Cumbria'],['guadiana','Guadiana']]){
@@ -182,7 +183,7 @@ $('editForm').onsubmit=async event=>{
   const paymentScopes=Array.from($('scopeChoices').querySelectorAll('input:checked:enabled'),box=>box.value);
   try{
     await api('nexusUpdateUser',{uid:editingUid,name:$('editName').value.trim(),role:$('editRole').value,
-      hotels:$('editHotels').value.split(','),canConvertBudget:$('editConvert').checked,paymentScopes});
+      hotels:$('editHotels').value.split(','),canEditGroups:$('editGroups').checked,canConvertBudget:$('editConvert').checked,paymentScopes});
     $('editor').close();
     message('Perfil actualizado');
     await refresh().catch(error);
@@ -235,6 +236,7 @@ function renderUsers(){
     const hotelNames = { cumbria: 'Cumbria', guadiana: 'Guadiana' };
     const hotels = (u.hotels || []).map(h => hotelNames[h] || h);
     const access = cell(u.linked ? hotels.join(' y ') || 'Sin hoteles' : 'Sin acceso');
+    if (u.linked) detail(access, u.canEditGroups || ['admin','direction'].includes(u.role) ? 'Edición completa de fichas' : 'Edición según perfil');
     if (u.linked) detail(access, u.canConvertBudget ? 'Puede convertir presupuestos' : 'Sin conversión de presupuestos');
     const active = activeUser(u);
     const status = cell(u.disabled ? 'Inhabilitado' : active ? 'Activo' : 'Sin permiso');
@@ -265,7 +267,7 @@ function renderUsers(){
 }
 $('createForm').onsubmit=async event=>{
   event.preventDefault();const submit=event.target.querySelector('button[type=submit]');submit.disabled=true;
-  try{const hotels=$('hotels').value.split(',').filter(Boolean);const result=await api('nexusCreateUser',{name:$('name').value,email:$('email').value,role:$('role').value,hotels,canConvertBudget:$('canConvertBudget').checked});
+  try{const hotels=$('hotels').value.split(',').filter(Boolean);const result=await api('nexusCreateUser',{name:$('name').value,email:$('email').value,role:$('role').value,hotels,canEditGroups:$('createEditGroups').checked,canConvertBudget:$('canConvertBudget').checked});
     event.target.reset();await refresh();secureLink(result.email,result.setupLink);message('Usuario creado. Entrega el enlace de activación de forma segura.');
   }catch(e){error(e)}finally{submit.disabled=false}
 };

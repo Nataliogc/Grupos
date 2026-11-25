@@ -13786,15 +13786,17 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           return { success: !(options && options.explicitMealScheduleSave), saved: true };
         } catch (err) {
           console.error("❌ Error updating metadata:", err);
+          const denied = err.code === "permission-denied" || err.code === "firestore/permission-denied";
+          const title = denied ? "Permiso insuficiente para guardar" : "Error al guardar los cambios";
+          const fields = Object.keys(updates).filter(key => key !== "tracking" && key !== "updatedAt");
+          const detail = denied
+            ? "Firebase ha rechazado el guardado de la ficha " + resId + "." +
+              (fields.length ? " Campos enviados: " + fields.join(", ") + "." : "")
+            : String(err.message || err);
           if (window.Swal) {
-            window.Swal.fire({
-              icon: "error",
-              title: "Error al guardar en la base de datos",
-              text: "No se pudieron guardar los cambios en Firestore: " + (err.message || err) + ". Comprueba tu conexión a internet.",
-              confirmButtonText: "Entendido"
-            });
+            window.Swal.fire({ icon: "error", title, text: detail, confirmButtonText: "Entendido" });
           } else {
-            alert("⚠️ Error al guardar en la base de datos:\n" + (err.message || err) + "\n\nComprueba tu conexión a internet.");
+            alert(title + "\n\n" + detail);
           }
           throw err;
 

@@ -142,6 +142,7 @@ service cloud.firestore {
           (isQuoteConversionUpdate() && canConvertBudget() && (managesAccounts() || !touchesPaymentLocked()))
           || (!isQuoteConversionUpdate() && managesAccounts())
           || (!isQuoteConversionUpdate() && permitted(['commercial']) && quote(resource.data) && quote(request.resource.data) && !touchesPaymentLocked())
+          || (!isQuoteConversionUpdate() && member().get('canEditGroups', false) == true && !touchesPaymentLocked())
           || (!isQuoteConversionUpdate() && onlyOperationalChange())
         );
 

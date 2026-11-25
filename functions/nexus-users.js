@@ -29,6 +29,11 @@ function ensureCanConvertBudget(value, defaultValue = false) {
   return value;
 }
 
+function editGroupsPermission(value = false) {
+  if (typeof value !== 'boolean') throw new HttpsError('invalid-argument', 'Permiso de edición no válido.');
+  return value;
+}
+
 async function requireAdmin(request) {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Identificación obligatoria.');
   const actor = await members.doc(request.auth.uid).get();
@@ -98,6 +103,7 @@ exports.nexusListUsers = onCall(options, async request => {
       disabled: u.disabled,
       linked: !!membership,
       hotels: Array.isArray(membership?.hotels) ? membership.hotels : [],
+      canEditGroups: membership?.canEditGroups === true,
       canConvertBudget: membership?.canConvertBudget === true,
       paymentScopes: membership?.paymentScopes || [],
       testAccount: (u.email || '').toLowerCase() === 'demo@hotel.com'
@@ -130,7 +136,7 @@ exports.nexusLinkUser = onCall(options, async request => {
   if (existing.exists)
     throw new HttpsError('already-exists', 'Esta cuenta ya tiene un perfil Nexus; utiliza Editar.');
   await ref.create({
-    email: record.email || email, name, role, hotels, canConvertBudget, active: true,
+    email: record.email || email, name, role, hotels, canConvertBudget, canEditGroups: editGroupsPermission(data.canEditGroups), active: true,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   });
@@ -153,7 +159,7 @@ exports.nexusCreateUser = onCall(options, async request => {
   try {
     created = await auth.createUser({ email, displayName: name, password: randomPassword,
       emailVerified: false, disabled: false });
-    await members.doc(created.uid).set({ name, email, role, hotels, canConvertBudget, active: true,
+    await members.doc(created.uid).set({ name, email, role, hotels, canConvertBudget, canEditGroups: editGroupsPermission(data.canEditGroups), active: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     const setupLink = await auth.generatePasswordResetLink(email);
@@ -180,6 +186,7 @@ exports.nexusUpdateUser = onCall(options, async request => {
   if (user.email?.toLowerCase() === 'demo@hotel.com')
     throw new HttpsError('failed-precondition', 'La cuenta demo no puede reactivarse desde Nexus.');
   const changes = {};
+  if (request.data.canEditGroups !== undefined) changes.canEditGroups = editGroupsPermission(request.data.canEditGroups);
   if (request.data.paymentScopes !== undefined) {
     const scopes = request.data.paymentScopes;
     if (!Array.isArray(scopes) || scopes.some(s => !/^(cumbria|guadiana)\/(grupos|mesachef|spa)$/.test(s)))
