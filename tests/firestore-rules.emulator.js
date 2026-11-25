@@ -447,3 +447,17 @@ test('Fase 2 & 3 (Emulator): negative economic protection blocks alt fields, nes
     assert.equal((await fsPatch('settings/main', forbidden, users.admin.idToken)).status, 403);
   }
 });
+
+test('Editor autorizado guarda un tramo manual y la ficha económica del hotel', async () => {
+  const editor = await signUpAndSignIn('editor.ficha@nexus.test', 'TestPass123!');
+  await adminDb.doc('access_members/' + editor.uid).set({
+    active: true, role: 'commercial', hotels: ['guadiana'], canEditGroups: true
+  });
+  const doc = 'groups/manual-plan-fixture';
+  await adminDb.doc(doc).set({Reserva:'214995', Hotel_Asignado:'Sercotel Guadiana', Com_Pagado:'0.00'});
+  const payment = {PaymentPlan_JSON:'[{"status":"Cobrado","amount":705.60}]', Com_Pagado:'705.60'};
+  assert.equal((await fsPatch(doc, payment, editor.idToken)).status, 200);
+  await adminDb.doc(doc).update({Com_Pagado:'0.00'});
+  assert.equal((await fsPatch(doc, {...payment, RoomingList_JSON:'[]', 'Pax.':'18', 'Importe(*)':'705.60'}, editor.idToken)).status, 200);
+  assert.equal((await fsPatch(doc, {...payment, Com_Pagado:'706.00', PayGold_UltimaAutorizacion:'fake'}, editor.idToken)).status, 403);
+});
