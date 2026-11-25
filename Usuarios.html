@@ -64,7 +64,15 @@ function parseHotels(raw){
 }
 function message(text){notice.textContent=text;notice.style.display='block';}
 function error(e){message('Operación no completada: '+(e?.message||'Error de servidor'));}
-function secureLink(email,url){$('secretEmail').textContent='Destinatario: '+email;$('secretUrl').textContent=url;$('secret').style.display='block';$('copySecret').onclick=()=>navigator.clipboard.writeText(url).then(()=>message('Enlace copiado. Envíalo únicamente a su destinatario.')).catch(error);}
+function secureLink(email,generatedUrl){
+  const action = new URL(generatedUrl);
+  const config = firebase.app().options;
+  if (action.origin !== 'https://' + config.authDomain || action.searchParams.get('mode') !== 'resetPassword' || !action.searchParams.get('oobCode') || !config.apiKey) {
+    throw new Error('El enlace recibido no corresponde al acceso de Nexus.');
+  }
+  action.searchParams.set('apiKey', config.apiKey);
+  const url = action.href;
+$('secretEmail').textContent='Destinatario: '+email;$('secretUrl').textContent=url;$('secret').style.display='block';$('copySecret').onclick=()=>navigator.clipboard.writeText(url).then(()=>message('Enlace copiado. Envíalo únicamente a su destinatario.')).catch(error);}
 $('hideSecret').onclick=()=>{$('secretUrl').textContent='';$('secret').style.display='none';};
 function button(title,handler,cls){const b=document.createElement('button');b.textContent=title;b.type='button';if(cls)b.className=cls;b.onclick=handler;return b;}
 async function api(name,data){return (await firebase.app().functions('us-central1').httpsCallable(name)(data||{})).data;}

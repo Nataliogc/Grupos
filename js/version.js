@@ -8,8 +8,8 @@
     "use strict";
 
     var versionInfo = {
-        version: "V2.5.116",
-        buildDate: "24/11/2026 18:35",
+        version: "V2.5.117",
+        buildDate: "25/11/2026 11:16",
         name: "Nexus Groups"
     };
 
