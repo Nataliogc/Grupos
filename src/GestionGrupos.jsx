@@ -11227,6 +11227,35 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         if (fichaReturnUrl) window.location.assign(fichaReturnUrl);
       };
 
+      // --- EDICIÓN CONCURRENTE: aviso cuando otro usuario graba la ficha abierta ---
+      const currentEditorEmail = () => {
+        try { return String(firebase.auth().currentUser?.email || "").toLowerCase(); } catch (_) { return ""; }
+      };
+      const [remoteFichaChange, setRemoteFichaChange] = useState(null);
+      useEffect(() => {
+        const base = fichaBaseRef.current;
+        if (!showFichaModal || !base) { setRemoteFichaChange(null); return; }
+        const me = currentEditorEmail();
+        const millis = v => v && typeof v.toMillis === "function" ? v.toMillis() : (v && v.seconds ? v.seconds * 1000 : 0);
+        for (const row of data || []) {
+          if (normalizeId(row.Reserva) !== base.id) continue;
+          const baseRow = base.rows.get(row._docId);
+          if (!baseRow) continue;
+          const remoteAt = millis(row.updatedAt);
+          if (!remoteAt || remoteAt <= millis(baseRow.updatedAt)) continue;
+          const by = String(row.updatedBy || "").toLowerCase();
+          if (!by || by === me) { baseRow.updatedAt = row.updatedAt; continue; }
+          setRemoteFichaChange(prev => prev && prev.id === base.id && prev.at >= remoteAt ? prev : { id: base.id, by, at: remoteAt });
+        }
+      }, [data, showFichaModal, selectedGroupFicha?.id]);
+      const reloadFichaFromServer = () => {
+        if (!window.confirm("Se recargará la ficha con los datos guardados por el otro usuario. Los cambios que no hayas grabado se perderán. ¿Continuar?")) return;
+        const id = fichaBaseRef.current?.id;
+        const fresh = groupedData.find(g => normalizeId(g.id) === id);
+        setRemoteFichaChange(null);
+        if (fresh) openFicha(fresh);
+      };
+
       const [isEditingGroupName, setIsEditingGroupName] = useState(false);
 
       const [tempGroupName, setTempGroupName] = useState("");
@@ -12836,6 +12865,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           id: normalizeId(group.id),
           rows: new Map((group.records || []).map(row => [row._docId || normalizeId(group.id), {...row}]))
         };
+        setRemoteFichaChange(null);
         setSelectedGroupFicha(group);
         setCollapsedFichaDays(new Set());
         setShowFichaModal(true);
@@ -13736,6 +13766,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
 
           if (guarded) {
+            const editorEmail = currentEditorEmail();
             const refs = [...docIdsToUpdate].map(id => db.collection("groups").doc(id));
             if (!refs.length) throw new Error("No se ha encontrado la ficha. Vuelve a abrirla.");
             const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -13755,7 +13786,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                   patch[key] = value;
                 }
                 if (Object.keys(patch).length) {
-                  tx.update(snapshot.ref, {...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+                  tx.update(snapshot.ref, {...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), ...(editorEmail ? { updatedBy: editorEmail } : {})});
                   changes.push([base, patch]);
                 }
               }
@@ -13770,6 +13801,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               ...updates,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
+            const editorEmail = currentEditorEmail();
+            if (editorEmail) payload.updatedBy = editorEmail;
 
             if (!updates.tracking && !updates.RoomingList_JSON && !updates.PaymentPlan_JSON && !updates.DailyDistribution_JSON && !updates.updatedAt) {
               const sampleRow = currentGroupRows[0] || {};
@@ -22230,6 +22263,17 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-2">
 
                 <div className="bg-white rounded-xl shadow-2xl w-[98vw] h-[95vh] overflow-y-auto flex flex-col animate-fade-in border border-slate-200 text-sm">
+
+                  {remoteFichaChange && remoteFichaChange.id === fichaBaseRef.current?.id && (
+                    <div className="sticky top-0 z-[60] bg-amber-100 border-b-2 border-amber-400 text-amber-900 px-5 py-3 flex items-center justify-between gap-4">
+                      <span className="font-semibold">
+                        ⚠️ {remoteFichaChange.by} ha grabado cambios en esta ficha a las {new Date(remoteFichaChange.at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}. Lo que ves ya no está actualizado: recarga la ficha antes de seguir para no pisar sus cambios.
+                      </span>
+                      <button type="button" onClick={reloadFichaFromServer} className="shrink-0 px-4 h-9 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest">
+                        Recargar ficha
+                      </button>
+                    </div>
+                  )}
 
                   {/* CENTRO DE MANDO NEXUS (Header + Acciones) */}
 
