@@ -11257,7 +11257,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           const remoteAt = millis(row.updatedAt);
           if (!remoteAt || remoteAt <= millis(baseRow.updatedAt)) continue;
           const by = String(row.updatedBy || "").toLowerCase();
-          if (!by || by === me) { baseRow.updatedAt = row.updatedAt; continue; }
+          // Cambios propios o automáticos: la base pasa a ser lo que hay grabado ahora.
+          if (!by || by === me) { Object.assign(baseRow, row); continue; }
           setRemoteFichaChange(prev => prev && prev.id === base.id && prev.at >= remoteAt ? prev : { id: base.id, by, at: remoteAt });
         }
       }, [data, showFichaModal, selectedGroupFicha?.id]);
@@ -13791,9 +13792,14 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 if (!base || !snapshot.exists) throw new Error("La ficha ha cambiado. Vuelve a abrirla antes de guardar.");
                 const stored = snapshot.data();
                 const patch = {};
+                // Solo es conflicto si el último en grabar fue OTRO usuario después de abrir la ficha.
+                // Los procesos automáticos (cálculo de pax, sincronizaciones, autoguardados propios) no bloquean.
+                const toMs = v => v && typeof v.toMillis === "function" ? v.toMillis() : (v && v.seconds ? v.seconds * 1000 : 0);
+                const lastBy = String(stored.updatedBy || "").toLowerCase();
+                const changedByOther = !!lastBy && lastBy !== editorEmail && toMs(stored.updatedAt) > toMs(base.updatedAt);
                 for (const [key, value] of Object.entries(updates)) {
                   if (key === "updatedAt" || value === undefined || same(base[key], value)) continue;
-                  if (!same(stored[key], value) && !same(stored[key], base[key])) {
+                  if (changedByOther && !same(stored[key], value) && !same(stored[key], base[key])) {
                     throw new Error("Otro usuario ha modificado " + key + ". No se ha guardado este cambio. Vuelve a abrir la ficha y revisa el dato.");
                   }
                   patch[key] = value;
