@@ -42,6 +42,17 @@ tbody tr:hover{background:#fafcfb}
 @media(max-width:950px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){main{padding:0 12px}.grid{grid-template-columns:1fr}.grid>div:nth-last-child(2){grid-column:auto}.grid>div:last-child{text-align:left}.directory-head{flex-wrap:wrap}thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}table,tbody,tr,td{display:block}tr{border-top:1px solid #cfddda;padding:12px 0}td{border:0;padding:4px 0}.actions{gap:6px}}
 dialog{width:min(520px,94vw);max-height:90vh;overflow:auto;border:1px solid #ceddd7;border-radius:14px;padding:24px;color:inherit}dialog::backdrop{background:#102a2580}dialog label{margin-top:12px}.choice{display:flex;gap:8px;align-items:center}.choice input{width:auto}dialog fieldset{margin:18px 0;padding:12px;border:1px solid #ceddd7;border-radius:8px}#scopeChoices section{margin:10px 0}#scopeChoices .choice{display:inline-flex;margin:6px 14px 6px 0}#editError{color:#952222}
+.directory{border-top:4px solid #185846}.directory h2{font-size:clamp(22px,2vw,29px);letter-spacing:-.035em}
+.tools{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin:22px 0}
+.filters{display:flex;gap:3px;flex-wrap:wrap;background:#edf3f0;padding:4px;border-radius:12px}
+.filters button{border:0;background:transparent;font-weight:600;padding:8px 10px}
+.filters button[aria-pressed=true]{background:#195643;color:white}
+.filters span{margin-left:4px;font-variant-numeric:tabular-nums}
+#findUser{width:min(100%,290px);font-size:14px}
+.directory td:first-child strong{font-size:15px}
+.directory td .actions button:first-child:not(.danger){background:#e8f3ef;color:#155a46;border-color:#c4dfd3}
+.directory .status.active::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#19815d;margin-right:6px}
+@media(max-width:760px){.directory #findUser{width:100%}.directory td .actions{margin-top:7px}.directory tbody tr{padding:14px 4px}}
 </style></head><body>
 <header><div><strong>NEXUS GROUPS</strong><div class="muted" style="color:#d9ece6">Administración segura de usuarios</div></div>
 <a class="link" href="Admin.html#inicio">Volver al inicio</a></header>
@@ -65,8 +76,13 @@ dialog{width:min(520px,94vw);max-height:90vh;overflow:auto;border:1px solid #ced
 <button id="copySecret" type="button">Copiar enlace</button><button id="hideSecret" type="button">Ocultar</button>
 <p class="muted">Este enlace puede permitir establecer una contraseña. No lo publiques ni lo reenvíes a terceros.</p></div>
 </section>
-<section class="card"><div class="directory-head"><h2>Directorio de usuarios</h2><button id="reload">Actualizar lista</button></div>
-<table><thead><tr><th>Empleado</th><th>Perfil</th><th>Hoteles y permisos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table>
+<section class="card directory"><div class="directory-head"><h2>Directorio de usuarios</h2><button id="reload">Actualizar lista</button></div>
+<div class="tools"><div class="filters" role="group" aria-label="Filtrar por estado">
+<button data-view="active" aria-pressed="true">Activos <span></span></button>
+<button data-view="inactive" aria-pressed="false">Sin acceso <span></span></button>
+<button data-view="all" aria-pressed="false">Todos <span></span></button></div>
+<input type="search" id="findUser" aria-label="Buscar por nombre o correo" placeholder="Buscar por nombre o correo"></div>
+<table><thead><tr><th>Empleado</th><th>Perfil</th><th>Hoteles y permisos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table><p id="directoryResult" role="status" class="muted"></p>
 <p class="muted">La revocación desactiva Firebase Authentication, la membresía y los tokens de actualización. Las operaciones de pago requieren controles independientes.</p>
 </section></div>
 <dialog id="editor" aria-labelledby="editTitle">
@@ -174,8 +190,32 @@ $('editForm').onsubmit=async event=>{
   finally{submit.disabled=false;$('cancelEdit').disabled=false;$('editor').oncancel=null}
 };
 async function refresh(){
-  const r=await api('nexusListUsers');items=r.users||[];$('users').replaceChildren();
-  for(const u of items){
+  const r=await api('nexusListUsers');items=r.users||[];
+  renderUsers();
+}
+let directoryView='active';
+const filterButtons=document.querySelectorAll('.filters [data-view]');
+function activeUser(user){return Boolean(user.linked && user.active && !user.disabled)}
+function searchable(value){return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+for(const button of filterButtons){
+  button.onclick=()=>{directoryView=button.dataset.view;renderUsers()};
+}
+$('findUser').oninput=renderUsers;
+function renderUsers(){
+  const activeCount=items.filter(activeUser).length;
+  const counts={active:activeCount,inactive:items.length-activeCount,all:items.length};
+  for(const button of filterButtons){
+    button.setAttribute('aria-pressed',String(button.dataset.view===directoryView));
+    button.querySelector('span').textContent=counts[button.dataset.view];
+  }
+  const query=searchable($('findUser').value);
+  const visible=items.filter(user=>{
+    const matches=directoryView==='all' || activeUser(user)===(directoryView==='active');
+    return matches && searchable([user.name,user.email].join(' ')).includes(query);
+  });
+  $('directoryResult').textContent=visible.length ? visible.length+(visible.length===1?' usuario visible':' usuarios visibles') : 'Ningún usuario coincide con los filtros seleccionados.';
+  $('users').replaceChildren();
+  for(const u of visible){
     const tr=document.createElement('tr');
     function cell(text, tag = 'span') {
       const td = tr.insertCell();
@@ -196,7 +236,7 @@ async function refresh(){
     const hotels = (u.hotels || []).map(h => hotelNames[h] || h);
     const access = cell(u.linked ? hotels.join(' y ') || 'Sin hoteles' : 'Sin acceso');
     if (u.linked) detail(access, u.canConvertBudget ? 'Puede convertir presupuestos' : 'Sin conversión de presupuestos');
-    const active = !u.disabled && u.linked && u.active;
+    const active = activeUser(u);
     const status = cell(u.disabled ? 'Inhabilitado' : active ? 'Activo' : 'Sin permiso');
     status.firstChild.className = active ? 'status active' : 'status';
     const actions=document.createElement('td'),wrap=document.createElement('div');wrap.className='actions';
