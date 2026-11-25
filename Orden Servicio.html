@@ -492,6 +492,23 @@
             const rec = group.records ? (group.records[0] || {}) : group;
             const mealSchedule = window.ServiceOrderPlanService.readSchedule(rec);
             const reconcilePlan = rows => window.ServiceOrderPlanService.reconcileMealPlan(rows, mealSchedule, formatD, rec.Entrada || group.arrival);
+            // Picnics (recogida en recepción): solo en Notas operativas, regenerados desde la programación de comidas.
+            const applyPicnicNotes = () => {
+                const svc = window.ServiceOrderPlanService;
+                if (!svc?.getPicnicNotes || mealSchedule === null) return;
+                const ul = document.getElementById('notas-ul');
+                if (!ul) return;
+                [...ul.children].forEach(li => { if (li.textContent.trim().startsWith(svc.PICNIC_NOTE_PREFIX)) li.remove(); });
+                const lines = svc.getPicnicNotes(mealSchedule, formatD);
+                if (!lines.length) return;
+                [...ul.children].forEach(li => { if (li.textContent.trim() === 'Sin notas operativas registradas en la reserva.') li.remove(); });
+                const first = ul.firstChild;
+                lines.forEach(line => {
+                    const li = document.createElement('li');
+                    li.textContent = line;
+                    ul.insertBefore(li, first);
+                });
+            };
 
             // Extract core logic
             currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
@@ -591,6 +608,7 @@
                             sanitizeText(r.detalle), 
                             sanitizeText(r.serv)
                         ));
+                        applyPicnicNotes();
                         isInitializingView = false;
                         return; 
                     }
@@ -919,6 +937,7 @@
                          addRowPlan(formatD(today), s, String(document.getElementById('pax-val').innerText || '---'), '', suggestedHours[s] || '');
                     });
                 }
+        applyPicnicNotes();
         // Initialization finished
         isInitializingView = false;
         });

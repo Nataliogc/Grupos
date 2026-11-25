@@ -44,6 +44,7 @@
     if (j === 'cena') return 'Cena';
     if (j === 'desayuno') return 'Desayuno';
     if (j === 'merienda') return 'Merienda';
+    if (j === 'picnic') return 'Picnic';
     if (j === 'coffee_break') return 'Coffee Break';
     if (j === 'coctel') return 'Cóctel';
     if (j === 'sala' || j === 'salon') return 'Alquiler de Sala / Salón';
@@ -58,6 +59,7 @@
     const isMeetingRoom = text => /sala|sal[oó]n|charla|reuni[oó]n|montaje/.test(text);
     if ((j === 'sala' || j === 'salon' || isMeetingRoom(mLabel)) && isMeetingRoom(s)) return true;
     if ((j === 'merienda' || mLabel.includes('merienda')) && s.includes('merienda')) return true;
+    if ((j === 'picnic' || mLabel.includes('picnic')) && s.includes('picnic')) return true;
     if ((j === 'coffee_break' || j === 'coffee' || /coffee|break/.test(mLabel)) && /coffee|break/.test(s)) return true;
     if ((j === 'coctel' || /coctel|cocktail/.test(mLabel)) && /coctel|cocktail/.test(s)) return true;
     if ((j === 'desayuno' || mLabel.includes('desayuno')) && s.includes('desayuno')) return true;
@@ -91,6 +93,8 @@
       return !isReplacedBySchedule;
     }).map(row => ({ ...row, fecha: dateOf(row) }));
     schedule.forEach(meal => {
+      // El picnic no va al plan de comidas: sale en las Notas operativas (ver getPicnicNotes).
+      if (String(meal.jornada || '').toLowerCase() === 'picnic') return;
       const label = getScheduleLabel(meal);
       const previous = rows.find(row => {
         const sameDay = !row.fecha || !meal.fecha || dateOf(row) === meal.fecha;
@@ -113,10 +117,24 @@
         hora: rowHour
       });
     });
-    const order = { desayuno: 0, coffee_break: 1, 'coffee break': 1, almuerzo: 2, comida: 2, sala: 3, salon: 3, merienda: 4, cena: 5, coctel: 6, especial: 7 };
+    const order = { desayuno: 0, coffee_break: 1, 'coffee break': 1, almuerzo: 2, comida: 2, picnic: 2.5, sala: 3, salon: 3, merienda: 4, cena: 5, coctel: 6, especial: 7 };
     return result.sort((a,b) => (a.fecha || "9999").localeCompare(b.fecha || "9999") || (order[normalize(a.serv)] ?? 7) - (order[normalize(b.serv)] ?? 7));
   }
-  const api = {readSchedule,reconcileMealPlan,getScheduleLabel,isServiceItem,getHeaderPax,serviceMatchesMeal};
+  const PICNIC_NOTE_PREFIX = '🧺 PICNIC';
+  function getPicnicNotes(schedule, formatDay = value => value) {
+    if (!Array.isArray(schedule)) return [];
+    return schedule
+      .filter(meal => meal && String(meal.jornada || '').toLowerCase() === 'picnic')
+      .slice()
+      .sort((a,b) => String(a.fecha || '').localeCompare(String(b.fecha || '')) || String(a.hora || '').localeCompare(String(b.hora || '')))
+      .map(meal => {
+        const hora = (meal.hora && meal.hora !== '---' && meal.hora !== '___:___ h') ? ` a las ${meal.hora}` : '';
+        const nombre = meal.nombre && String(meal.nombre).trim() ? ` (${String(meal.nombre).trim()})` : '';
+        const obs = String(meal.observaciones || '').trim();
+        return `${PICNIC_NOTE_PREFIX}${nombre} ${formatDay(meal.fecha)}: ${meal.pax} pax, recogida en recepción${hora}${obs ? '. ' + obs : ''}`;
+      });
+  }
+  const api = {readSchedule,reconcileMealPlan,getPicnicNotes,PICNIC_NOTE_PREFIX,getScheduleLabel,isServiceItem,getHeaderPax,serviceMatchesMeal};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ServiceOrderPlanService = api;
 })(typeof window !== "undefined" ? window : globalThis);

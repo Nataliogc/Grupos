@@ -451,6 +451,7 @@
     switch (String(jornada || '').toLowerCase()) {
       case 'desayuno': return 'Desayuno';
       case 'almuerzo': return 'Almuerzo';
+      case 'picnic': return 'Picnic';
       case 'merienda': return 'Merienda';
       case 'cena': return 'Cena';
       case 'coffee_break': return 'Coffee Break';
@@ -490,7 +491,7 @@
    */
   function sortMealRows(rows) {
     if (!Array.isArray(rows)) return [];
-    var jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, merienda: 4, cena: 5, coctel: 6, sala: 7, especial: 8 };
+    var jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, picnic: 3.5, merienda: 4, cena: 5, coctel: 6, sala: 7, especial: 8 };
     return rows.slice().sort(function (a, b) {
       var fA = String(a.fecha || "");
       var fB = String(b.fecha || "");
@@ -514,7 +515,7 @@
     var rows = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!Array.isArray(rows)) throw new Error("La programación de comidas debe ser una lista.");
     var seen = {};
-    var validJornadas = ["desayuno", "almuerzo", "merienda", "cena", "coffee_break", "coctel", "sala", "especial"];
+    var validJornadas = ["desayuno", "almuerzo", "picnic", "merienda", "cena", "coffee_break", "coctel", "sala", "especial"];
     var mapped = rows.map(function (row) {
       var date = toIsoDate(row.fecha);
       var pax = Number(row.pax);
@@ -539,7 +540,7 @@
         hora: cleanHour,
         nombre: cleanNombre,
         id: row.id || undefined,
-        salon: String(row.salon || "").trim(),
+        salon: jNorm === "picnic" ? "" : String(row.salon || "").trim(),
         observaciones: cleanObs
       };
     });
@@ -648,7 +649,7 @@
       if (!item || !item.isService || toIsoDate(item.dateIn || item.date || item.fecha) !== row.fecha) return false;
       var name = clean(item.type || item.roomType);
       if (row.nombre && name === clean(row.nombre)) return true;
-      var patterns = { almuerzo: /almuerzo|comida/, merienda: /merienda/, cena: /cena/, desayuno: /desayuno/, coffee_break: /coffee|cafe/, coctel: /coctel|cocktail/ };
+      var patterns = { almuerzo: /almuerzo|comida/, picnic: /picnic|picnik|pic_nic|pic nic/, merienda: /merienda/, cena: /cena/, desayuno: /desayuno/, coffee_break: /coffee|cafe/, coctel: /coctel|cocktail/ };
       return patterns[row.jornada] ? patterns[row.jornada].test(name) : false;
     });
     if (candidates.length !== 1) return null;
@@ -888,7 +889,8 @@
       var allowance = automatic.reduce(function (sum, doc) { return sum + doc.detalles.pax_adultos; }, 0);
       var seenSlugs = {};
       var seenDocIds = {};
-      return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
+      // El picnic se recoge en recepción: solo va a las notas de la Orden de Servicio, nunca a MesaChef.
+      return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha) && row.jornada !== "picnic"; }).map(function (row) {
         var doc = JSON.parse(JSON.stringify(template));
         var included = Math.min(allowance, row.pax);
         allowance -= included;
@@ -1540,7 +1542,7 @@
 
     docs.sort(function (a, b) {
       if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
-      var jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, merienda: 4, cena: 5, coctel: 6, especial: 7 };
+      var jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, picnic: 3.5, merienda: 4, cena: 5, coctel: 6, especial: 7 };
       var jA = jOrder[(a.detalles && a.detalles.jornada)] || 99;
       var jB = jOrder[(b.detalles && b.detalles.jornada)] || 99;
       if (jA !== jB) return jA - jB;

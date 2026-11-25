@@ -1158,7 +1158,8 @@
             const mesaServices = await service.getActualMesaChefServices(group.id).catch(() => []);
             if (!forceReplace && dirtyRef.current) return;
             if (Array.isArray(mesaServices) && mesaServices.length > 0) {
-              setRows(sortMealRows(mesaServices.map(r => {
+              // Los picnics no existen en MesaChef: se conservan de la programación guardada.
+              setRows(prev => sortMealRows([...(prev || []).filter(r => r && r.jornada === "picnic"), ...mesaServices.map(r => {
                 const mesaSalon = (locs[r.id] && locs[r.id] !== "Varios salones") ? locs[r.id] : r.salon;
                 const salonFinal = String(mesaSalon || defSalon || "").trim();
                 const rowOut = {
@@ -1172,7 +1173,7 @@
                 };
                 if (r.nombre) rowOut.nombre = r.nombre;
                 return rowOut;
-              })));
+              })]));
               if (forceReplace) dirtyRef.current = false;
               return;
             }
@@ -1184,7 +1185,7 @@
             if (mesaSalon && mesaSalon !== "Varios salones") {
               return { ...r, salon: mesaSalon };
             }
-            if (!r.salon && defSalon) {
+            if (!r.salon && defSalon && r.jornada !== "picnic") {
               return { ...r, salon: defSalon };
             }
             return r;
@@ -1218,7 +1219,7 @@
 
       const sortMealRows = (list) => {
         if (!Array.isArray(list)) return [];
-        const jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, merienda: 4, cena: 5, coctel: 6, sala: 7, especial: 8 };
+        const jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, picnic: 3.5, merienda: 4, cena: 5, coctel: 6, sala: 7, especial: 8 };
         return [...list].sort((a, b) => {
           const fA = String(a?.fecha || "");
           const fB = String(b?.fecha || "");
@@ -1282,9 +1283,17 @@
         } catch (e) {}
       }, [group.totalPax, record.RoomingList_JSON, record.DailyDistribution_JSON]);
 
+      const defaultSalonForHotel = () => String(record.Hotel_Asignado || "").toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA;
       const change = (index, field, value) => {
         dirtyRef.current = true;
-        setRows(prev=>prev.map((r,i)=>i===index?{...r,[field]:value}:r));
+        setRows(prev=>prev.map((r,i)=>{
+          if (i !== index) return r;
+          const next = {...r,[field]:value};
+          // El picnic se recoge en recepción: no va a MesaChef, solo a las notas de la Orden de Servicio.
+          if (field === "jornada" && value === "picnic") next.salon = "";
+          else if (field === "jornada" && r.jornada === "picnic" && !r.salon) next.salon = defaultSalonForHotel();
+          return next;
+        }));
       };
       const planned = rows.reduce((sum,r)=>sum+(Number(r.pax)||0),0);
       const save = async (automaticMode = false) => {
@@ -1364,6 +1373,7 @@
                         <select aria-label="Turno de comida o servicio" value={row.jornada} disabled={saving} onChange={e=>change(index,"jornada",e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs font-medium bg-white">
                           <option value="desayuno">☕ Desayuno</option>
                           <option value="almuerzo">🍽️ Almuerzo</option>
+                          <option value="picnic">🧺 Picnic</option>
                           <option value="merienda">🥪 Merienda</option>
                           <option value="cena">🍷 Cena</option>
                           <option value="coffee_break">☕ Coffee Break</option>
@@ -1404,6 +1414,9 @@
                       })()}
                     </td>
                     <td className="py-1.5 px-2 text-slate-600">
+                      {row.jornada === "picnic" ? (
+                        <span className="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 text-amber-800 rounded px-2 py-1 text-xs font-medium w-44" title="El picnic no se envía a MesaChef: aparece en las Notas operativas de la Orden de Servicio">🛎️ Recepción · solo Orden Serv.</span>
+                      ) : (
                       <select aria-label="Salón del servicio" disabled={saving}
                         value={row.salon || locations[row.id] || locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
                         onChange={e=>change(index,"salon",e.target.value)}
@@ -1416,6 +1429,7 @@
                           locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`]
                         ].filter((v,i,a)=>v && v !== "Varios salones" && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
                       </select>
+                      )}
                     </td>
                     <td className="py-1.5 px-2">
                       <textarea
