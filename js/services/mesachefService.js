@@ -43,6 +43,8 @@
   };
 
   var SALON_GUADIANA = "Eventos Grupos Alarcos";
+  // Picnic: se recoge en recepción. Va a MesaChef marcado con recogidaRecepcion para salir en los informes, sin ocupar salón.
+  var PICNIC_LOCATION = "Recepción";
   var SALON_CUMBRIA = "Eventos Restaurante";
   var COLLECTION_SALONES = "reservas_salones";
   var COLLECTION_GRUPOS = "mesachef_grupos";
@@ -889,8 +891,7 @@
       var allowance = automatic.reduce(function (sum, doc) { return sum + doc.detalles.pax_adultos; }, 0);
       var seenSlugs = {};
       var seenDocIds = {};
-      // El picnic se recoge en recepción: solo va a las notas de la Orden de Servicio, nunca a MesaChef.
-      return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha) && row.jornada !== "picnic"; }).map(function (row) {
+      return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
         var doc = JSON.parse(JSON.stringify(template));
         var included = Math.min(allowance, row.pax);
         allowance -= included;
@@ -915,7 +916,12 @@
           seenDocIds[doc.id] = true;
         }
         doc.fecha = row.fecha;
-        if (row.salon) { doc.salon = row.salon; doc.nexusSalonRequest = row.salon; }
+        if (row.jornada === "picnic") {
+          doc.salon = PICNIC_LOCATION; doc.nexusSalonRequest = PICNIC_LOCATION; doc.recogidaRecepcion = true;
+        } else {
+          if (row.salon) { doc.salon = row.salon; doc.nexusSalonRequest = row.salon; }
+          doc.recogidaRecepcion = false;
+        }
         doc.detalles.jornada = row.jornada;
         doc.detalles.hora = scheduleHour;
         doc.detalles.pax_adultos = row.pax;
@@ -2346,6 +2352,7 @@
     getActualMesaChefServices: getActualMesaChefServices,
     MESACHEF_FIREBASE_CONFIG: MESACHEF_FIREBASE_CONFIG,
     SALON_GUADIANA: SALON_GUADIANA,
+    PICNIC_LOCATION: PICNIC_LOCATION,
     SALON_CUMBRIA: SALON_CUMBRIA,
     COLLECTION_SALONES: COLLECTION_SALONES,
     COLLECTION_GRUPOS: COLLECTION_GRUPOS,

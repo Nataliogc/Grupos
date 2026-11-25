@@ -1158,10 +1158,9 @@
             const mesaServices = await service.getActualMesaChefServices(group.id).catch(() => []);
             if (!forceReplace && dirtyRef.current) return;
             if (Array.isArray(mesaServices) && mesaServices.length > 0) {
-              // Los picnics no existen en MesaChef: se conservan de la programación guardada.
-              setRows(prev => sortMealRows([...(prev || []).filter(r => r && r.jornada === "picnic"), ...mesaServices.map(r => {
+              setRows(sortMealRows(mesaServices.map(r => {
                 const mesaSalon = (locs[r.id] && locs[r.id] !== "Varios salones") ? locs[r.id] : r.salon;
-                const salonFinal = String(mesaSalon || defSalon || "").trim();
+                const salonFinal = r.jornada === "picnic" ? "" : String(mesaSalon || defSalon || "").trim();
                 const rowOut = {
                   id: r.id,
                   fecha: r.fecha,
@@ -1173,7 +1172,7 @@
                 };
                 if (r.nombre) rowOut.nombre = r.nombre;
                 return rowOut;
-              })]));
+              })));
               if (forceReplace) dirtyRef.current = false;
               return;
             }
@@ -1289,7 +1288,7 @@
         setRows(prev=>prev.map((r,i)=>{
           if (i !== index) return r;
           const next = {...r,[field]:value};
-          // El picnic se recoge en recepción: no va a MesaChef, solo a las notas de la Orden de Servicio.
+          // El picnic se recoge en recepción: no ocupa salón (en MesaChef sale como "Recepción" solo en informes).
           if (field === "jornada" && value === "picnic") next.salon = "";
           else if (field === "jornada" && r.jornada === "picnic" && !r.salon) next.salon = defaultSalonForHotel();
           return next;
@@ -1415,7 +1414,7 @@
                     </td>
                     <td className="py-1.5 px-2 text-slate-600">
                       {row.jornada === "picnic" ? (
-                        <span className="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 text-amber-800 rounded px-2 py-1 text-xs font-medium w-44" title="El picnic no se envía a MesaChef: aparece en las Notas operativas de la Orden de Servicio">🛎️ Recepción · solo Orden Serv.</span>
+                        <span className="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 text-amber-800 rounded px-2 py-1 text-xs font-medium w-44" title="El picnic no ocupa salón: sale en las Notas operativas de la Orden de Servicio y en el informe de MesaChef como Recepción">🛎️ Recogida en recepción</span>
                       ) : (
                       <select aria-label="Salón del servicio" disabled={saving}
                         value={row.salon || locations[row.id] || locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
@@ -13800,7 +13799,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                   patch[key] = value;
                 }
                 if (Object.keys(patch).length) {
-                  tx.update(snapshot.ref, {...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), ...(editorEmail ? { updatedBy: editorEmail } : {})});
+                  // Campos como "Pax." llevan punto: con un objeto Firestore los toma como rutas anidadas y falla.
+                  // Se pasan como FieldPath para que cada nombre se trate literalmente.
+                  const fullPatch = {...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), ...(editorEmail ? { updatedBy: editorEmail } : {})};
+                  const pathArgs = Object.entries(fullPatch).flatMap(([k, v]) => [new firebase.firestore.FieldPath(k), v]);
+                  tx.update(snapshot.ref, ...pathArgs);
                   changes.push([base, patch]);
                 }
               }
