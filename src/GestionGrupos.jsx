@@ -11204,6 +11204,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
       const [showFichaModal, setShowFichaModal] = useState(false);
 
+      const fichaBaseRef = React.useRef(null);
       const [selectedGroupFicha, setSelectedGroupFicha] = useState(null);
 
       const [fichaReturnUrl] = useState(() => {
@@ -12831,6 +12832,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           console.error("Error en detección automática de presupuesto / extras en openFicha:", autoLinkErr);
         }
 
+        fichaBaseRef.current = {
+          id: normalizeId(group.id),
+          rows: new Map((group.records || []).map(row => [row._docId || normalizeId(group.id), {...row}]))
+        };
         setSelectedGroupFicha(group);
         setCollapsedFichaDays(new Set());
         setShowFichaModal(true);
@@ -13531,7 +13536,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         }
         if (updates.MealSchedule_JSON !== undefined) updates.MealScheduleNeedsReview = false;
 
-        // 1. Optimistic UI Update
+        const fichaBase = fichaBaseRef.current;
+        const guarded = fichaBase?.id === normTargetId &&
+          (updates.PaymentPlan_JSON !== undefined || updates.RoomingList_JSON !== undefined);
+        const applyLocalChanges = () => {
         setData((prevData) => {
 
           return prevData.map((row) => {
@@ -13683,6 +13691,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         }
 
+        };
+        if (!guarded) applyLocalChanges();
+
         // 3. Persist to Firestore (usa currentGroupRows capturados antes del update optimista)
 
         try {
@@ -13709,7 +13720,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             }
           }
 
-          if (!hasRealChanges && updates.MealSchedule_JSON === undefined) {
+          if (!guarded && !hasRealChanges && updates.MealSchedule_JSON === undefined) {
             return { success: true, skipped: true };
           }
 
@@ -13724,6 +13735,35 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             docIdsToUpdate.add(targetNormId);
           }
 
+          if (guarded) {
+            const refs = [...docIdsToUpdate].map(id => db.collection("groups").doc(id));
+            if (!refs.length) throw new Error("No se ha encontrado la ficha. Vuelve a abrirla.");
+            const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+            const written = await db.runTransaction(async tx => {
+              const snapshots = await Promise.all(refs.map(ref => tx.get(ref)));
+              const changes = [];
+              for (const snapshot of snapshots) {
+                const base = fichaBase.rows.get(snapshot.id);
+                if (!base || !snapshot.exists) throw new Error("La ficha ha cambiado. Vuelve a abrirla antes de guardar.");
+                const stored = snapshot.data();
+                const patch = {};
+                for (const [key, value] of Object.entries(updates)) {
+                  if (key === "updatedAt" || value === undefined || same(base[key], value)) continue;
+                  if (!same(stored[key], value) && !same(stored[key], base[key])) {
+                    throw new Error("Otro usuario ha modificado " + key + ". No se ha guardado este cambio. Vuelve a abrir la ficha y revisa el dato.");
+                  }
+                  patch[key] = value;
+                }
+                if (Object.keys(patch).length) {
+                  tx.update(snapshot.ref, {...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+                  changes.push([base, patch]);
+                }
+              }
+              return changes;
+            });
+            for (const [base, patch] of written) Object.assign(base, patch);
+            if (fichaBase === fichaBaseRef.current) applyLocalChanges();
+          } else {
           docIdsToUpdate.forEach((docId) => {
             const docRef = db.collection("groups").doc(docId);
             const payload = {
@@ -13757,6 +13797,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           });
 
           if (hasRealChanges) await batch.commit();
+          }
 
           if (options && options.skipMesaChefSync) {
             return { success: true, saved: true };
