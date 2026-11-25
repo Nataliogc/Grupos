@@ -1,6 +1,7 @@
 "use strict";
 
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
+function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(_typeof(e) + " is not iterable"); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -848,7 +849,7 @@ var Dashboard = function Dashboard(_ref) {
   }, [filteredGroups]);
 
   // Grupos que el Excel del PMS da por ANULADOS pero que en Nexus siguen activos.
-  // Van aparte de las columnas y sin límite de días: hay que revisarlos siempre.
+  // Van aparte de las columnas; solo los que entran en los próximos 20 días.
   var excelCancelledActive = React.useMemo(function () {
     var list = [];
     var seen = new Set();
@@ -864,8 +865,12 @@ var Dashboard = function Dashboard(_ref) {
       if (cancelWords.some(function (w) {
         return internal.includes(w);
       })) return;
-      var departure = parseDate(g.Salida || g.Entrada);
-      if (departure && departure < startOfToday) return;
+      // Solo grupos reales con entrada próxima: de hoy a 20 días (mismo plazo que el resto de alertas).
+      var entry = parseDate(g.Entrada);
+      if (!entry || isNaN(entry.getTime())) return;
+      var entryDay = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+      var daysToArrival = Math.round((entryDay - startOfToday) / (1000 * 60 * 60 * 24));
+      if (daysToArrival < 0 || daysToArrival >= 20) return;
       if (selectedComercial !== "todos") {
         var com = (g.Com_Comercial || g.Comercial || "").trim().toUpperCase();
         if (selectedComercial === "sin_asignar" ? !!com : com !== selectedComercial.trim().toUpperCase()) return;
@@ -880,6 +885,142 @@ var Dashboard = function Dashboard(_ref) {
       return (parseDate(a.group.Entrada) || 0) - (parseDate(b.group.Entrada) || 0);
     });
   }, [filteredGroups, selectedComercial]);
+
+  // ── Limpieza de registros que NO son grupos (filas de segmentos/tarifas de importaciones antiguas) ──
+  var currentNexusUser = (typeof window.getNexusCurrentUser === "function" ? window.getNexusCurrentUser() : null) || null;
+  var isNexusAdmin = ["administrador", "admin"].includes(String((currentNexusUser === null || currentNexusUser === void 0 ? void 0 : currentNexusUser.role) || "").toLowerCase());
+  var _React$useState17 = React.useState(false),
+    _React$useState18 = _slicedToArray(_React$useState17, 2),
+    junkModalOpen = _React$useState18[0],
+    setJunkModalOpen = _React$useState18[1];
+  var _React$useState19 = React.useState({}),
+    _React$useState20 = _slicedToArray(_React$useState19, 2),
+    junkSelected = _React$useState20[0],
+    setJunkSelected = _React$useState20[1];
+  var _React$useState21 = React.useState(false),
+    _React$useState22 = _slicedToArray(_React$useState21, 2),
+    junkDeleting = _React$useState22[0],
+    setJunkDeleting = _React$useState22[1];
+  var junkGroupDocs = React.useMemo(function () {
+    var hasItems = function hasItems(raw) {
+      if (!raw || raw === "[]" || raw === "{}") return false;
+      try {
+        var v = typeof raw === "string" ? JSON.parse(raw) : raw;
+        return Array.isArray(v) ? v.length > 0 : !!(v && Object.keys(v).length);
+      } catch (e) {
+        return true;
+      }
+    };
+    var validDate = function validDate(v) {
+      var d = parseDate(v);
+      return !!(d && !isNaN(d.getTime()) && d.getFullYear() > 1900);
+    };
+    return (data || []).filter(function (row) {
+      if (!row || !row._docId) return false;
+      var res = String(row.Reserva || row._docId || "");
+      if (/^PRES-/i.test(res)) return false; // presupuestos: nunca
+      if (validDate(row.Entrada) || validDate(row.Salida)) return false; // tiene fechas: es un grupo
+      if (hasItems(row.RoomingList_JSON) || hasItems(row.DailyDistribution_JSON)) return false; // tiene habitaciones
+      if (hasItems(row.PaymentPlan_JSON) || hasItems(row.MealSchedule_JSON)) return false; // tiene cobros o comidas
+      return true;
+    }).sort(function (a, b) {
+      return String(a._docId).localeCompare(String(b._docId));
+    });
+  }, [data]);
+  var openJunkModal = function openJunkModal() {
+    var sel = {};
+    junkGroupDocs.forEach(function (r) {
+      sel[r._docId] = true;
+    });
+    setJunkSelected(sel);
+    setJunkModalOpen(true);
+  };
+  var deleteJunkGroups = /*#__PURE__*/function () {
+    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+      var targets, backup, blob, a, _loop, i, _t;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.p = _context2.n) {
+          case 0:
+            targets = junkGroupDocs.filter(function (r) {
+              return junkSelected[r._docId];
+            });
+            if (targets.length) {
+              _context2.n = 1;
+              break;
+            }
+            return _context2.a(2);
+          case 1:
+            if (window.confirm("Se borrar\xE1n DEFINITIVAMENTE ".concat(targets.length, " registro(s) de la colecci\xF3n de grupos.\n\nAntes se descargar\xE1 una copia de seguridad (JSON). \xBFContinuar?"))) {
+              _context2.n = 2;
+              break;
+            }
+            return _context2.a(2);
+          case 2:
+            setJunkDeleting(true);
+            _context2.p = 3;
+            // Copia de seguridad local antes de borrar
+            backup = JSON.stringify(targets.map(function (r) {
+              return _objectSpread({}, r);
+            }), null, 2);
+            blob = new Blob([backup], {
+              type: "application/json"
+            });
+            a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "backup-registros-no-grupos-".concat(new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"), ".json");
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            _loop = /*#__PURE__*/_regenerator().m(function _loop() {
+              var batch;
+              return _regenerator().w(function (_context) {
+                while (1) switch (_context.n) {
+                  case 0:
+                    batch = db.batch();
+                    targets.slice(i, i + 400).forEach(function (r) {
+                      return batch.delete(db.collection("groups").doc(r._docId));
+                    });
+                    _context.n = 1;
+                    return batch.commit();
+                  case 1:
+                    return _context.a(2);
+                }
+              }, _loop);
+            });
+            i = 0;
+          case 4:
+            if (!(i < targets.length)) {
+              _context2.n = 6;
+              break;
+            }
+            return _context2.d(_regeneratorValues(_loop()), 5);
+          case 5:
+            i += 400;
+            _context2.n = 4;
+            break;
+          case 6:
+            setJunkModalOpen(false);
+            setToastInfo("\uD83E\uDDF9 ".concat(targets.length, " registro(s) que no eran grupos borrados. Copia de seguridad descargada."));
+            _context2.n = 8;
+            break;
+          case 7:
+            _context2.p = 7;
+            _t = _context2.v;
+            console.error("[Limpieza registros no-grupo]", _t);
+            alert("No se ha podido completar el borrado: " + (_t.message || _t) + "\nNo se ha borrado nada de lo que falló; revisa la copia descargada.");
+          case 8:
+            _context2.p = 8;
+            setJunkDeleting(false);
+            return _context2.f(8);
+          case 9:
+            return _context2.a(2);
+        }
+      }, _callee, null, [[3, 7, 8, 9]]);
+    }));
+    return function deleteJunkGroups() {
+      return _ref2.apply(this, arguments);
+    };
+  }();
 
   // 2. Lista de comerciales y contador de alertas por comercial para el hotel actual
   var _React$useMemo = React.useMemo(function () {
@@ -1224,7 +1365,7 @@ var Dashboard = function Dashboard(_ref) {
     var dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     var days = [];
     var totalMealsCount = 0;
-    var _loop = function _loop() {
+    var _loop2 = function _loop2() {
       var cur = new Date(start);
       cur.setDate(cur.getDate() + i);
       var curYear = cur.getFullYear();
@@ -1389,7 +1530,7 @@ var Dashboard = function Dashboard(_ref) {
       });
     };
     for (var i = 0; i < totalDays; i++) {
-      _loop();
+      _loop2();
     }
     var hasMeals = totalMealsCount > 0;
     var isRoomOnly = baseRegimeType === "HA" && !hasMeals;
@@ -1582,16 +1723,16 @@ var Dashboard = function Dashboard(_ref) {
     setInternalReportModal(null);
   };
   var recordInternalReportInFirestore = /*#__PURE__*/function () {
-    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(repData) {
+    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(repData) {
       var now, nowIso, recipient, updatedInternal, groupsToRecord, seen, _i, _groupsToRecord, item;
-      return _regenerator().w(function (_context) {
-        while (1) switch (_context.n) {
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.n) {
           case 0:
             if (!(!repData || !window.db)) {
-              _context.n = 1;
+              _context3.n = 1;
               break;
             }
-            return _context.a(2);
+            return _context3.a(2);
           case 1:
             try {
               now = new Date();
@@ -1637,12 +1778,12 @@ var Dashboard = function Dashboard(_ref) {
               console.error("Error al registrar informe interno:", e);
             }
           case 2:
-            return _context.a(2);
+            return _context3.a(2);
         }
-      }, _callee);
+      }, _callee2);
     }));
     return function recordInternalReportInFirestore(_x) {
-      return _ref2.apply(this, arguments);
+      return _ref3.apply(this, arguments);
     };
   }();
   var formatBodyToOutlookHtml = function formatBodyToOutlookHtml(bodyText) {
@@ -1781,7 +1922,7 @@ var Dashboard = function Dashboard(_ref) {
     });
   };
   var recordNotificationInFirestore = /*#__PURE__*/function () {
-    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(data) {
+    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(data) {
       var channel,
         now,
         fmtDate,
@@ -1805,22 +1946,22 @@ var Dashboard = function Dashboard(_ref) {
         batch,
         targetId,
         payload,
-        _args2 = arguments,
-        _t,
+        _args4 = arguments,
         _t2,
         _t3,
-        _t4;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
+        _t4,
+        _t5;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
-            channel = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : "email";
+            channel = _args4.length > 1 && _args4[1] !== undefined ? _args4[1] : "email";
             if (!(!data || !window.db)) {
-              _context2.n = 1;
+              _context4.n = 1;
               break;
             }
-            return _context2.a(2);
+            return _context4.a(2);
           case 1:
-            _context2.p = 1;
+            _context4.p = 1;
             now = new Date();
             fmtDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
             dateShort = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
@@ -1865,61 +2006,61 @@ var Dashboard = function Dashboard(_ref) {
             }
             matchedDocs = [];
             _iterator = _createForOfIteratorHelper(targetDocIds);
-            _context2.p = 2;
+            _context4.p = 2;
             _iterator.s();
           case 3:
             if ((_step = _iterator.n()).done) {
-              _context2.n = 8;
+              _context4.n = 8;
               break;
             }
             docId = _step.value;
-            _context2.p = 4;
-            _context2.n = 5;
+            _context4.p = 4;
+            _context4.n = 5;
             return db.collection("groups").doc(docId).get();
           case 5:
-            snap = _context2.v;
+            snap = _context4.v;
             if (snap.exists) matchedDocs.push(snap);
-            _context2.n = 7;
+            _context4.n = 7;
             break;
           case 6:
-            _context2.p = 6;
-            _t = _context2.v;
+            _context4.p = 6;
+            _t2 = _context4.v;
           case 7:
-            _context2.n = 3;
+            _context4.n = 3;
             break;
           case 8:
-            _context2.n = 10;
+            _context4.n = 10;
             break;
           case 9:
-            _context2.p = 9;
-            _t2 = _context2.v;
-            _iterator.e(_t2);
+            _context4.p = 9;
+            _t3 = _context4.v;
+            _iterator.e(_t3);
           case 10:
-            _context2.p = 10;
+            _context4.p = 10;
             _iterator.f();
-            return _context2.f(10);
+            return _context4.f(10);
           case 11:
             if (!(matchedDocs.length === 0 && data.resId)) {
-              _context2.n = 15;
+              _context4.n = 15;
               break;
             }
-            _context2.p = 12;
+            _context4.p = 12;
             baseQuery = typeof window.getNexusGroupsQuery === "function" ? window.getNexusGroupsQuery(db) : db.collection("groups");
-            _context2.n = 13;
+            _context4.n = 13;
             return baseQuery.where("Reserva", "==", data.resId).get();
           case 13:
-            qSnap = _context2.v;
+            qSnap = _context4.v;
             qSnap.forEach(function (d) {
               return matchedDocs.push(d);
             });
-            _context2.n = 15;
+            _context4.n = 15;
             break;
           case 14:
-            _context2.p = 14;
-            _t3 = _context2.v;
+            _context4.p = 14;
+            _t4 = _context4.v;
           case 15:
             if (!(matchedDocs.length > 0)) {
-              _context2.n = 17;
+              _context4.n = 17;
               break;
             }
             batch = db.batch();
@@ -1968,14 +2109,14 @@ var Dashboard = function Dashboard(_ref) {
                 merge: true
               });
             });
-            _context2.n = 16;
+            _context4.n = 16;
             return batch.commit();
           case 16:
-            _context2.n = 18;
+            _context4.n = 18;
             break;
           case 17:
             if (!data.resId) {
-              _context2.n = 18;
+              _context4.n = 18;
               break;
             }
             targetId = String(data.resId).trim().replace(/^#/, '');
@@ -1992,24 +2133,24 @@ var Dashboard = function Dashboard(_ref) {
               payload.Ultima_Alerta_Interna = newNotifItem;
               payload.notificadoInternoAt = now.toISOString();
             }
-            _context2.n = 18;
+            _context4.n = 18;
             return db.collection("groups").doc(targetId).set(payload, {
               merge: true
             });
           case 18:
-            _context2.n = 20;
+            _context4.n = 20;
             break;
           case 19:
-            _context2.p = 19;
-            _t4 = _context2.v;
-            console.error("Error al registrar notificación en Firestore:", _t4);
+            _context4.p = 19;
+            _t5 = _context4.v;
+            console.error("Error al registrar notificación en Firestore:", _t5);
           case 20:
-            return _context2.a(2);
+            return _context4.a(2);
         }
-      }, _callee2, null, [[12, 14], [4, 6], [2, 9, 10, 11], [1, 19]]);
+      }, _callee3, null, [[12, 14], [4, 6], [2, 9, 10, 11], [1, 19]]);
     }));
     return function recordNotificationInFirestore(_x2) {
-      return _ref3.apply(this, arguments);
+      return _ref4.apply(this, arguments);
     };
   }();
   var handleExecuteOpenEmail = function handleExecuteOpenEmail(data) {
@@ -2130,11 +2271,11 @@ var Dashboard = function Dashboard(_ref) {
       setToastInfo("\uD83D\uDCB3 IBAN: ".concat(iban));
     });
   };
-  var AlertColumn = function AlertColumn(_ref4) {
-    var title = _ref4.title,
-      icon = _ref4.icon,
-      colorClass = _ref4.colorClass,
-      alerts = _ref4.alerts;
+  var AlertColumn = function AlertColumn(_ref5) {
+    var title = _ref5.title,
+      icon = _ref5.icon,
+      colorClass = _ref5.colorClass,
+      alerts = _ref5.alerts;
     var theme = {
       rose: {
         bg: "bg-rose-50/50",
@@ -2534,7 +2675,102 @@ var Dashboard = function Dashboard(_ref) {
     name: "external-link",
     size: 14,
     className: "text-slate-300 group-hover:text-violet-600 shrink-0 transition-colors"
-  }))), excelCancelledActive.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }))), isNexusAdmin && junkGroupDocs.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-slate-50 px-4 py-2.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] font-bold text-slate-600"
+  }, "Hay ", /*#__PURE__*/React.createElement("b", null, junkGroupDocs.length), " registro(s) guardados como grupo que no lo son (sin fechas, habitaciones, cobros ni comidas): filas de segmentos o tarifas de importaciones antiguas."), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: openJunkModal,
+    className: "shrink-0 px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-950 text-white text-[10px] font-black uppercase tracking-wider cursor-pointer"
+  }, "\uD83E\uDDF9 Revisar y limpiar")), junkModalOpen && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4",
+    onClick: function onClick() {
+      return !junkDeleting && setJunkModalOpen(false);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col",
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black text-slate-800 uppercase tracking-wider"
+  }, "Limpiar registros que no son grupos"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-500 mt-1"
+  }, "Solo aparecen registros sin fecha de entrada ni salida, sin habitaciones, sin plan de cobros y sin comidas. Los presupuestos (PRES-) nunca se incluyen. Desmarca lo que quieras conservar.")), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-auto px-6 py-3"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-[11px]"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    className: "text-left text-slate-400 uppercase text-[9px]"
+  }, /*#__PURE__*/React.createElement("th", {
+    className: "py-1 w-8"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: junkGroupDocs.every(function (r) {
+      return junkSelected[r._docId];
+    }),
+    onChange: function onChange(e) {
+      var v = e.target.checked;
+      var sel = {};
+      junkGroupDocs.forEach(function (r) {
+        sel[r._docId] = v;
+      });
+      setJunkSelected(sel);
+    }
+  })), /*#__PURE__*/React.createElement("th", {
+    className: "py-1"
+  }, "Documento"), /*#__PURE__*/React.createElement("th", {
+    className: "py-1"
+  }, "Nombre"), /*#__PURE__*/React.createElement("th", {
+    className: "py-1"
+  }, "Estado"), /*#__PURE__*/React.createElement("th", {
+    className: "py-1"
+  }, "Hotel"))), /*#__PURE__*/React.createElement("tbody", {
+    className: "divide-y divide-slate-100"
+  }, junkGroupDocs.map(function (r) {
+    return /*#__PURE__*/React.createElement("tr", {
+      key: r._docId
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: !!junkSelected[r._docId],
+      onChange: function onChange(e) {
+        return setJunkSelected(function (prev) {
+          return _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, r._docId, e.target.checked));
+        });
+      }
+    })), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 font-mono text-slate-700"
+    }, r._docId), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 font-bold text-slate-800"
+    }, r["Nombre del Grupo"] || r["Empresa/Agencia"] || r.Reserva || "—"), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 text-slate-500"
+    }, r.Estado || r.Com_Estado_Interno || "—"), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 text-slate-500"
+    }, r.Hotel_Asignado || r.Hotel || "—"));
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    disabled: junkDeleting,
+    onClick: function onClick() {
+      return setJunkModalOpen(false);
+    },
+    className: "px-4 py-2 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    disabled: junkDeleting || !junkGroupDocs.some(function (r) {
+      return junkSelected[r._docId];
+    }),
+    onClick: deleteJunkGroups,
+    className: "px-4 py-2 rounded-full text-xs font-black text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 cursor-pointer"
+  }, junkDeleting ? "Borrando..." : "Borrar ".concat(junkGroupDocs.filter(function (r) {
+    return junkSelected[r._docId];
+  }).length, " seleccionados"))))), excelCancelledActive.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-5 rounded-[2rem] border-2 border-red-500 bg-red-50 p-5 shadow-lg shadow-red-100"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 mb-4"
@@ -2548,13 +2784,13 @@ var Dashboard = function Dashboard(_ref) {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-sm font-black text-red-800 uppercase tracking-wider"
-  }, "Anulados en el Excel \xB7 siguen activos en Nexus (", excelCancelledActive.length, ")"), /*#__PURE__*/React.createElement("p", {
+  }, "Anulados en el Excel \xB7 siguen activos en Nexus \xB7 entrada pr\xF3xima (", excelCancelledActive.length, ")"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] font-semibold text-red-700"
   }, "El PMS los da por anulados, pero en Nexus siguen vivos. Rev\xEDsalos: an\xFAlalos en la ficha o aclara el estado con el cliente."))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3"
-  }, excelCancelledActive.map(function (_ref5) {
-    var g = _ref5.group,
-      internal = _ref5.internal;
+  }, excelCancelledActive.map(function (_ref6) {
+    var g = _ref6.group,
+      internal = _ref6.internal;
     return /*#__PURE__*/React.createElement("div", {
       key: g.Reserva || g.id,
       onClick: function onClick() {
@@ -3290,16 +3526,16 @@ var Dashboard = function Dashboard(_ref) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.129 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.130 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
-var GroupsManager = function GroupsManager(_ref6) {
-  var data = _ref6.data,
-    onUpdateStatus = _ref6.onUpdateStatus,
-    onDeleteGroup = _ref6.onDeleteGroup;
-  var _React$useState17 = React.useState(""),
-    _React$useState18 = _slicedToArray(_React$useState17, 2),
-    searchTerm = _React$useState18[0],
-    setSearchTerm = _React$useState18[1];
+var GroupsManager = function GroupsManager(_ref7) {
+  var data = _ref7.data,
+    onUpdateStatus = _ref7.onUpdateStatus,
+    onDeleteGroup = _ref7.onDeleteGroup;
+  var _React$useState23 = React.useState(""),
+    _React$useState24 = _slicedToArray(_React$useState23, 2),
+    searchTerm = _React$useState24[0],
+    setSearchTerm = _React$useState24[1];
   var filteredData = data.filter(function (group) {
     var res = String(group["Reserva"] || "").toUpperCase();
     var uid = String(group.uid || group.id || "").toUpperCase();
@@ -3517,18 +3753,18 @@ var GroupsManager = function GroupsManager(_ref6) {
     className: "col-span-full text-center py-20 text-slate-400"
   }, "No se encontraron grupos coincidiendo con tu b\xFAsqueda.")));
 };
-var BudgetManager = function BudgetManager(_ref7) {
-  var data = _ref7.data,
-    onUpdateStatus = _ref7.onUpdateStatus,
-    onDeleteGroup = _ref7.onDeleteGroup;
-  var _React$useState19 = React.useState(""),
-    _React$useState20 = _slicedToArray(_React$useState19, 2),
-    searchTerm = _React$useState20[0],
-    setSearchTerm = _React$useState20[1];
-  var _React$useState21 = React.useState("TODOS"),
-    _React$useState22 = _slicedToArray(_React$useState21, 2),
-    statusFilter = _React$useState22[0],
-    setStatusFilter = _React$useState22[1];
+var BudgetManager = function BudgetManager(_ref8) {
+  var data = _ref8.data,
+    onUpdateStatus = _ref8.onUpdateStatus,
+    onDeleteGroup = _ref8.onDeleteGroup;
+  var _React$useState25 = React.useState(""),
+    _React$useState26 = _slicedToArray(_React$useState25, 2),
+    searchTerm = _React$useState26[0],
+    setSearchTerm = _React$useState26[1];
+  var _React$useState27 = React.useState("TODOS"),
+    _React$useState28 = _slicedToArray(_React$useState27, 2),
+    statusFilter = _React$useState28[0],
+    setStatusFilter = _React$useState28[1];
   var budgetData = data.filter(function (g) {
     var isBudget = String(g.Reserva || "").startsWith("PRES-") || (g.Estado || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("ENVIADO") || (g.Com_Estado_Interno || "").toUpperCase().includes("SEGUIMIENTO");
     if (!isBudget) return false;
@@ -3810,14 +4046,14 @@ var App = function App() {
     successToast = _useState10[0],
     setSuccessToast = _useState10[1];
   var handleUpdateStatus = /*#__PURE__*/function () {
-    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(groupId, newStatus) {
-      var docId, _t5;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(groupId, newStatus) {
+      var docId, _t6;
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
           case 0:
-            _context3.p = 0;
+            _context5.p = 0;
             docId = String(groupId || "").trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
-            _context3.n = 1;
+            _context5.n = 1;
             return db.collection("groups").doc(docId).set({
               Estado: newStatus,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3829,34 +4065,34 @@ var App = function App() {
             setTimeout(function () {
               return setSuccessToast(null);
             }, 3000);
-            _context3.n = 3;
+            _context5.n = 3;
             break;
           case 2:
-            _context3.p = 2;
-            _t5 = _context3.v;
-            console.error("Error updating status:", _t5);
+            _context5.p = 2;
+            _t6 = _context5.v;
+            console.error("Error updating status:", _t6);
           case 3:
-            return _context3.a(2);
+            return _context5.a(2);
         }
-      }, _callee3, null, [[0, 2]]);
+      }, _callee4, null, [[0, 2]]);
     }));
     return function handleUpdateStatus(_x3, _x4) {
-      return _ref8.apply(this, arguments);
+      return _ref9.apply(this, arguments);
     };
   }();
   var handleDeleteGroup = /*#__PURE__*/function () {
-    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(groupId) {
-      var docId, _t6;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(groupId) {
+      var docId, _t7;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
           case 0:
             if (!window.confirm("¿Estás seguro de que deseas desestimar este grupo?")) {
-              _context4.n = 4;
+              _context6.n = 4;
               break;
             }
-            _context4.p = 1;
+            _context6.p = 1;
             docId = String(groupId || "").trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
-            _context4.n = 2;
+            _context6.n = 2;
             return db.collection("groups").doc(docId).set({
               Estado: "DESESTIMADO",
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3868,19 +4104,19 @@ var App = function App() {
             setTimeout(function () {
               return setSuccessToast(null);
             }, 3000);
-            _context4.n = 4;
+            _context6.n = 4;
             break;
           case 3:
-            _context4.p = 3;
-            _t6 = _context4.v;
-            console.error("Error deleting group:", _t6);
+            _context6.p = 3;
+            _t7 = _context6.v;
+            console.error("Error deleting group:", _t7);
           case 4:
-            return _context4.a(2);
+            return _context6.a(2);
         }
-      }, _callee4, null, [[1, 3]]);
+      }, _callee5, null, [[1, 3]]);
     }));
     return function handleDeleteGroup(_x5) {
-      return _ref9.apply(this, arguments);
+      return _ref0.apply(this, arguments);
     };
   }();
 

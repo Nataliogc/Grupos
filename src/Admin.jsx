@@ -805,7 +805,7 @@
       }, [filteredGroups]);
 
       // Grupos que el Excel del PMS da por ANULADOS pero que en Nexus siguen activos.
-      // Van aparte de las columnas y sin límite de días: hay que revisarlos siempre.
+      // Van aparte de las columnas; solo los que entran en los próximos 20 días.
       const excelCancelledActive = React.useMemo(() => {
         const list = [];
         const seen = new Set();
@@ -819,8 +819,12 @@
           if (!excelStatus.includes("ANUL") && g._diff !== "cancelled") return;
           const internal = String(g.Com_Estado_Interno || g["Segment."] || "").toUpperCase();
           if (cancelWords.some(w => internal.includes(w))) return;
-          const departure = parseDate(g.Salida || g.Entrada);
-          if (departure && departure < startOfToday) return;
+          // Solo grupos reales con entrada próxima: de hoy a 20 días (mismo plazo que el resto de alertas).
+          const entry = parseDate(g.Entrada);
+          if (!entry || isNaN(entry.getTime())) return;
+          const entryDay = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+          const daysToArrival = Math.round((entryDay - startOfToday) / (1000 * 60 * 60 * 24));
+          if (daysToArrival < 0 || daysToArrival >= 20) return;
           if (selectedComercial !== "todos") {
             const com = (g.Com_Comercial || g.Comercial || "").trim().toUpperCase();
             if (selectedComercial === "sin_asignar" ? !!com : com !== selectedComercial.trim().toUpperCase()) return;
@@ -830,6 +834,62 @@
         });
         return list.sort((a, b) => (parseDate(a.group.Entrada) || 0) - (parseDate(b.group.Entrada) || 0));
       }, [filteredGroups, selectedComercial]);
+
+      // ── Limpieza de registros que NO son grupos (filas de segmentos/tarifas de importaciones antiguas) ──
+      const currentNexusUser = (typeof window.getNexusCurrentUser === "function" ? window.getNexusCurrentUser() : null) || null;
+      const isNexusAdmin = ["administrador", "admin"].includes(String(currentNexusUser?.role || "").toLowerCase());
+      const [junkModalOpen, setJunkModalOpen] = React.useState(false);
+      const [junkSelected, setJunkSelected] = React.useState({});
+      const [junkDeleting, setJunkDeleting] = React.useState(false);
+      const junkGroupDocs = React.useMemo(() => {
+        const hasItems = (raw) => {
+          if (!raw || raw === "[]" || raw === "{}") return false;
+          try { const v = typeof raw === "string" ? JSON.parse(raw) : raw; return Array.isArray(v) ? v.length > 0 : !!(v && Object.keys(v).length); } catch (e) { return true; }
+        };
+        const validDate = (v) => { const d = parseDate(v); return !!(d && !isNaN(d.getTime()) && d.getFullYear() > 1900); };
+        return (data || []).filter((row) => {
+          if (!row || !row._docId) return false;
+          const res = String(row.Reserva || row._docId || "");
+          if (/^PRES-/i.test(res)) return false;              // presupuestos: nunca
+          if (validDate(row.Entrada) || validDate(row.Salida)) return false; // tiene fechas: es un grupo
+          if (hasItems(row.RoomingList_JSON) || hasItems(row.DailyDistribution_JSON)) return false; // tiene habitaciones
+          if (hasItems(row.PaymentPlan_JSON) || hasItems(row.MealSchedule_JSON)) return false;      // tiene cobros o comidas
+          return true;
+        }).sort((a, b) => String(a._docId).localeCompare(String(b._docId)));
+      }, [data]);
+      const openJunkModal = () => {
+        const sel = {};
+        junkGroupDocs.forEach((r) => { sel[r._docId] = true; });
+        setJunkSelected(sel);
+        setJunkModalOpen(true);
+      };
+      const deleteJunkGroups = async () => {
+        const targets = junkGroupDocs.filter((r) => junkSelected[r._docId]);
+        if (!targets.length) return;
+        if (!window.confirm(`Se borrarán DEFINITIVAMENTE ${targets.length} registro(s) de la colección de grupos.\n\nAntes se descargará una copia de seguridad (JSON). ¿Continuar?`)) return;
+        setJunkDeleting(true);
+        try {
+          // Copia de seguridad local antes de borrar
+          const backup = JSON.stringify(targets.map((r) => ({ ...r })), null, 2);
+          const blob = new Blob([backup], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `backup-registros-no-grupos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
+          document.body.appendChild(a); a.click(); a.remove();
+          for (let i = 0; i < targets.length; i += 400) {
+            const batch = db.batch();
+            targets.slice(i, i + 400).forEach((r) => batch.delete(db.collection("groups").doc(r._docId)));
+            await batch.commit();
+          }
+          setJunkModalOpen(false);
+          setToastInfo(`🧹 ${targets.length} registro(s) que no eran grupos borrados. Copia de seguridad descargada.`);
+        } catch (e) {
+          console.error("[Limpieza registros no-grupo]", e);
+          alert("No se ha podido completar el borrado: " + (e.message || e) + "\nNo se ha borrado nada de lo que falló; revisa la copia descargada.");
+        } finally {
+          setJunkDeleting(false);
+        }
+      };
 
       // 2. Lista de comerciales y contador de alertas por comercial para el hotel actual
       const { commercialList, commercialCounts } = React.useMemo(() => {
@@ -2908,6 +2968,60 @@ ${comercial}`;
             </a>
           </div>
 
+          {isNexusAdmin && junkGroupDocs.length > 0 && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-slate-50 px-4 py-2.5">
+              <span className="text-[11px] font-bold text-slate-600">
+                Hay <b>{junkGroupDocs.length}</b> registro(s) guardados como grupo que no lo son (sin fechas, habitaciones, cobros ni comidas): filas de segmentos o tarifas de importaciones antiguas.
+              </span>
+              <button type="button" onClick={openJunkModal} className="shrink-0 px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-950 text-white text-[10px] font-black uppercase tracking-wider cursor-pointer">
+                🧹 Revisar y limpiar
+              </button>
+            </div>
+          )}
+
+          {junkModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" onClick={() => !junkDeleting && setJunkModalOpen(false)}>
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Limpiar registros que no son grupos</h3>
+                  <p className="text-[11px] text-slate-500 mt-1">Solo aparecen registros sin fecha de entrada ni salida, sin habitaciones, sin plan de cobros y sin comidas. Los presupuestos (PRES-) nunca se incluyen. Desmarca lo que quieras conservar.</p>
+                </div>
+                <div className="flex-1 overflow-auto px-6 py-3">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="text-left text-slate-400 uppercase text-[9px]">
+                        <th className="py-1 w-8">
+                          <input type="checkbox" checked={junkGroupDocs.every((r) => junkSelected[r._docId])} onChange={(e) => { const v = e.target.checked; const sel = {}; junkGroupDocs.forEach((r) => { sel[r._docId] = v; }); setJunkSelected(sel); }} />
+                        </th>
+                        <th className="py-1">Documento</th>
+                        <th className="py-1">Nombre</th>
+                        <th className="py-1">Estado</th>
+                        <th className="py-1">Hotel</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {junkGroupDocs.map((r) => (
+                        <tr key={r._docId}>
+                          <td className="py-1.5"><input type="checkbox" checked={!!junkSelected[r._docId]} onChange={(e) => setJunkSelected((prev) => ({ ...prev, [r._docId]: e.target.checked }))} /></td>
+                          <td className="py-1.5 font-mono text-slate-700">{r._docId}</td>
+                          <td className="py-1.5 font-bold text-slate-800">{r["Nombre del Grupo"] || r["Empresa/Agencia"] || r.Reserva || "—"}</td>
+                          <td className="py-1.5 text-slate-500">{r.Estado || r.Com_Estado_Interno || "—"}</td>
+                          <td className="py-1.5 text-slate-500">{r.Hotel_Asignado || r.Hotel || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button type="button" disabled={junkDeleting} onClick={() => setJunkModalOpen(false)} className="px-4 py-2 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer">Cancelar</button>
+                  <button type="button" disabled={junkDeleting || !junkGroupDocs.some((r) => junkSelected[r._docId])} onClick={deleteJunkGroups} className="px-4 py-2 rounded-full text-xs font-black text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 cursor-pointer">
+                    {junkDeleting ? "Borrando..." : `Borrar ${junkGroupDocs.filter((r) => junkSelected[r._docId]).length} seleccionados`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {excelCancelledActive.length > 0 && (
             <div className="mb-5 rounded-[2rem] border-2 border-red-500 bg-red-50 p-5 shadow-lg shadow-red-100">
               <div className="flex items-center gap-3 mb-4">
@@ -2916,7 +3030,7 @@ ${comercial}`;
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-black text-red-800 uppercase tracking-wider">
-                    Anulados en el Excel · siguen activos en Nexus ({excelCancelledActive.length})
+                    Anulados en el Excel · siguen activos en Nexus · entrada próxima ({excelCancelledActive.length})
                   </h3>
                   <p className="text-[11px] font-semibold text-red-700">
                     El PMS los da por anulados, pero en Nexus siguen vivos. Revísalos: anúlalos en la ficha o aclara el estado con el cliente.
@@ -3760,7 +3874,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.129 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.130 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
